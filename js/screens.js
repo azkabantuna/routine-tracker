@@ -284,6 +284,7 @@ window.RT = window.RT || {};
     checkSaveError();
     updateCard(card, r, RT.routines.getLevel(RT.today(), id));
     updateProgress(countDone(), store.getRoutines().length);
+    renderCharacter();
     if (result) setAnim(card, 'pop', 370); // 취소(null)는 팝 없음
     if (result === 'mini') showToast('mini 도 한 거다!', 'mini');
     if (result && RT.effects) RT.effects.celebrate({ level: result, x: cx, y: cy, emoji: r.emoji || '' }); // 취소는 효과 없음
@@ -344,6 +345,16 @@ window.RT = window.RT || {};
     els.manageList.textContent = '';
     els.manageList.appendChild(frag);
     els.manageEmpty.hidden = routines.length !== 0;
+    renderCharacter();
+  }
+
+  // 캐릭터 카드: 처음 한 번 붙이고, 이후엔 다시 그리기만 (읽기 전용)
+  function renderCharacter() {
+    var c = RT.character;
+    var slot = $('char-mount');
+    if (!c || !c.mount || !slot) return;
+    if (!slot.firstChild && !c.__mounted) { c.mount(slot); c.__mounted = true; }
+    c.render(store.state);
   }
 
   els.manageList.addEventListener('click', function (e) {

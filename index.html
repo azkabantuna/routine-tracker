@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/overlays.css">
   <link rel="stylesheet" href="css/effects.css">
   <link rel="stylesheet" href="css/calendar.css">
+  <link rel="stylesheet" href="css/character.css">
   <script src="js/date.js" defer></script>
   <script src="js/emoji.js" defer></script>
   <script src="js/store.js" defer></script>
@@ -76,6 +77,7 @@
       <!-- 3. 루틴 관리 -->
       <section class="screen" id="screen-manage" data-screen="manage" aria-labelledby="manage-title" hidden>
         <h1 class="screen-title" id="manage-title">루틴 관리</h1>
+        <div class="char-mount" data-testid="char-mount" id="char-mount"></div>
         <button type="button" class="btn btn-primary btn-block" data-testid="btn-add-routine" id="btn-add-routine">+ 루틴 추가</button>
         <p class="manage-empty" id="manage-empty" hidden>아직 루틴이 없어요. 위 버튼으로 추가해 보세요.</p>
         <ul class="manage-list" id="manage-list"></ul>

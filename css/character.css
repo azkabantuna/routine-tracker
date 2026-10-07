@@ -1,0 +1,66 @@
+/* 성장 캐릭터 카드 (루틴 관리 탭 맨 위). 움직임은 transform·opacity 만 */
+.char-card {
+  display: flex; align-items: center; gap: 14px;
+  margin: 0 0 14px; padding: 14px;
+  background: var(--card);
+  border-radius: var(--radius-btn);
+  box-shadow: 0 4px 0 var(--line);
+  position: relative;
+}
+.char-stage { position: relative; width: 96px; height: 96px; flex: 0 0 96px; display: flex; align-items: flex-end; justify-content: center; }
+.char-shadow { position: absolute; bottom: 2px; left: 50%; width: 64px; height: 12px; margin-left: -32px; border-radius: 50%; background: rgba(0, 0, 0, .18); filter: blur(2px); }
+.char-pet { position: relative; width: 56px; height: 62px; margin-bottom: 8px; transform-origin: 50% 100%; animation: char-breathe 3s ease-in-out infinite; }
+.char-body {
+  position: absolute; inset: 0; border-radius: 50% 50% 46% 46%;
+  background: radial-gradient(circle at 35% 28%, #fff8e8 0, #ffd9a0 38%, #f0a35c 100%);
+  box-shadow: inset -6px -8px 12px rgba(160, 80, 20, .28), 0 4px 6px rgba(0, 0, 0, .15);
+}
+.char-shine { position: absolute; top: 9%; left: 20%; width: 22%; height: 16%; border-radius: 50%; background: rgba(255, 255, 255, .75); transform: rotate(-25deg); }
+.char-eye { position: absolute; top: 46%; width: 7px; height: 9px; border-radius: 50%; background: #3a2418; display: none; }
+.char-eye-l { left: 30%; } .char-eye-r { right: 30%; }
+.char-ear { position: absolute; display: none; top: -10px; width: 16px; height: 20px; background: #f0a35c; box-shadow: inset -2px -3px 4px rgba(160, 80, 20, .3); }
+.char-ear-l { left: 4px; transform: rotate(-18deg); } .char-ear-r { right: 4px; transform: rotate(18deg); }
+
+/* 1 알: 작고 하얀 타원 */
+.char-card[data-stage="1"] .char-pet { width: 42px; height: 54px; }
+.char-card[data-stage="1"] .char-body { border-radius: 50% 50% 48% 48% / 60% 60% 40% 40%; background: radial-gradient(circle at 35% 28%, #fff 0, #f4efe6 45%, #d9cfbf 100%); }
+/* 2 아기: 노랗고 둥근 몸, 눈 */
+.char-card[data-stage="2"] .char-pet { width: 50px; height: 50px; }
+.char-card[data-stage="2"] .char-body { border-radius: 50%; background: radial-gradient(circle at 35% 28%, #fffbe0 0, #ffe27a 45%, #f0b93a 100%); }
+.char-card[data-stage="2"] .char-eye { display: block; }
+/* 3 꼬마: 주황 + 작은 귀 */
+.char-card[data-stage="3"] .char-pet { width: 60px; height: 62px; }
+.char-card[data-stage="3"] .char-eye, .char-card[data-stage="3"] .char-ear { display: block; }
+.char-card[data-stage="3"] .char-ear { border-radius: 50% 50% 0 0; }
+/* 4 어른: 크고 보라빛 + 뾰족한 귀·뿔빛 */
+.char-card[data-stage="4"] .char-pet { width: 72px; height: 76px; }
+.char-card[data-stage="4"] .char-body { background: radial-gradient(circle at 35% 28%, #f6eaff 0, #c79bff 42%, #7a46d6 100%); box-shadow: inset -8px -10px 14px rgba(50, 10, 110, .35), 0 6px 10px rgba(80, 30, 160, .3); }
+.char-card[data-stage="4"] .char-eye, .char-card[data-stage="4"] .char-ear { display: block; }
+.char-card[data-stage="4"] .char-ear { top: -18px; width: 18px; height: 30px; background: #9a63ea; clip-path: polygon(50% 0, 100% 100%, 0 100%); border-radius: 0; box-shadow: none; }
+.char-card[data-stage="4"] .char-eye { width: 8px; height: 11px; background: #fff; box-shadow: 0 0 0 2px #3b1a78; }
+
+.char-info { flex: 1; min-width: 0; }
+.char-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.char-level { font-size: 22px; font-weight: 800; color: var(--primary-dark); }
+.char-stage-name { font-size: 14px; font-weight: 700; color: var(--text-soft); }
+.char-bar { height: 12px; border-radius: 6px; background: var(--line); overflow: hidden; }
+.char-fill { height: 100%; width: 100%; border-radius: 6px; background: linear-gradient(90deg, #ffb066, var(--primary, #FF7A3D)); transform-origin: 0 50%; transform: scaleX(0); transition: transform .4s ease-out; }
+.char-xp-row { margin: 6px 0 0; font-size: 13px; font-weight: 700; color: var(--text-soft); }
+.char-xp-row strong { font-size: 16px; color: var(--text); }
+.char-next { margin: 2px 0 0; font-size: 13px; color: var(--text-soft); }
+
+/* 레벨업: 캐릭터가 통통 튀고 빛 번짐 (600ms, 카드 안에서만) */
+.char-card[data-levelup="1"] .char-pet { animation: char-levelup .6s ease-out 1; }
+.char-card[data-levelup="1"]::after {
+  content: ""; position: absolute; left: 14px; top: 14px; width: 96px; height: 96px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 220, 120, .8) 0, rgba(255, 220, 120, 0) 70%);
+  pointer-events: none; opacity: 0; animation: char-glow .6s ease-out 1;
+}
+@keyframes char-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.04, .96); } }
+@keyframes char-levelup { 0% { transform: translateY(0) scale(1); } 35% { transform: translateY(-14px) scale(1.12); } 70% { transform: translateY(0) scale(.95, 1.05); } 100% { transform: translateY(0) scale(1); } }
+@keyframes char-glow { 0% { opacity: 0; transform: scale(.6); } 40% { opacity: 1; } 100% { opacity: 0; transform: scale(1.3); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .char-pet, .char-card[data-levelup="1"] .char-pet, .char-card[data-levelup="1"]::after { animation: none; }
+  .char-fill { transition: none; }
+}
