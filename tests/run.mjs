@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT = path.resolve(HERE, '..');
-const FEATURES = ['store', 'routines', 'emoji', 'effects', 'motion', 'layout'];
+const FEATURES = ['store', 'routines', 'emoji', 'effects', 'motion', 'layout', 'calendar'];
 
 // ★ 바뀐 파일 → 돌릴 기능 (표 하나뿐). 표에 없는 파일은 안전하게 전부 돌린다.
 const TABLE = {
@@ -23,13 +23,15 @@ const TABLE = {
   'effects.js': ['effects'],
   'effects.css': ['effects'],
   'screens.js': ['routines', 'motion', 'layout'],
-  'app.js': ['routines', 'motion', 'layout'],
-  'index.html': ['routines', 'motion', 'layout'],
+  'app.js': ['routines', 'motion', 'layout', 'calendar'],
+  'index.html': ['routines', 'motion', 'layout', 'calendar'],
   'base.css': ['motion', 'layout'],
   'cards.css': ['motion', 'layout'],
   'overlays.css': ['motion', 'layout'],
+  'calendar.js': ['calendar'],
+  'calendar.css': ['calendar'],
   'character.js': ['store'], // 간단 확인(저장 데이터가 그대로인지)
-  'streak.js': ['store'],
+  'streak.js': ['store', 'calendar'],
   '_lib.mjs': FEATURES, // 공용 도우미가 바뀌면 전부
   'run.mjs': ['store'], // 실행기만 바뀜: 간단 확인
   'old-seed.json': ['store'],

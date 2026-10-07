@@ -107,7 +107,7 @@ export async function open(browser, { seed = null, reduced = false, viewport = {
             t: performance.now(), attr: m.attributeName, id: el.id || el.className || el.tagName,
             val: el.getAttribute(m.attributeName),
             hiddenToday: document.getElementById('screen-today')?.hidden,
-            hiddenLog: document.getElementById('screen-log')?.hidden,
+            hiddenLog: document.getElementById('screen-calendar')?.hidden,
             hiddenManage: document.getElementById('screen-manage')?.hidden,
           });
         }

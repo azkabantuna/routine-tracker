@@ -3,7 +3,7 @@
 import { consoleErrors, fs, path, HERE, run, check, note, sleep, tid, getStore, open, openConfirm, scaleOf, pct, seedN, fixtureRaw, SEED2, SEED3 } from './_lib.mjs';
 
 const SEED3N = seedN(3);
-const SCREENS = ['today', 'log', 'manage'];
+const SCREENS = ['today', 'calendar', 'manage'];
 const state = (page) => page.evaluate(() => ({
   visible: [...document.querySelectorAll('.screen')].filter((s) => !s.hidden).map((s) => s.id),
   selected: [...document.querySelectorAll('.tab')].filter((t) => t.getAttribute('aria-selected') === 'true').map((t) => t.getAttribute('data-tab')),
@@ -92,7 +92,7 @@ await run(async (browser) => {
     await page.click(tid('tab-manage'));
     errs.push(...(await pressFeel(page, tid('btn-add-routine'), '.btn', { reduced: false })));
     await page.click(tid('btn-close'));
-    errs.push(...(await pressFeel(page, tid('tab-log'), '.tab', { reduced: false })));
+    errs.push(...(await pressFeel(page, tid('tab-calendar'), '.tab', { reduced: false })));
     await ctx.close();
     return errs.length ? errs.join('; ') : true;
   });
@@ -105,7 +105,7 @@ await run(async (browser) => {
     await page.click(tid('tab-manage'));
     r = await overshoot(page, tid('btn-add-routine'), async () => { await page.click(tid('btn-close')); });
     notes.push('btn ' + r.note); if (!r.ok) errs.push('.btn 오버슈트 못 봄: ' + r.note);
-    r = await overshoot(page, tid('tab-log'), null);
+    r = await overshoot(page, tid('tab-calendar'), null);
     notes.push('tab ' + r.note); if (!r.ok) errs.push('.tab 오버슈트 못 봄: ' + r.note);
     console.log('   · ' + notes.join(' | '));
     await ctx.close();
@@ -271,7 +271,7 @@ await run(async (browser) => {
 
   // ================= (옛 v2-m1-r2) 탭 전환·누름 수치·부드러움·스타일시트 =================
   // ================= 1. 탭 전환 =================
-  await check('T1 탭 전환 MutationObserver: tab-log 클릭 0–300ms 에 today=leave·log=enter 각 ≥1회, 기록 시점 두 화면 모두 hidden 아님, 새 훅(data-switching·data-dir·aria-hidden·animationName)', async () => {
+  await check('T1 탭 전환 MutationObserver: tab-calendar 클릭 0–300ms 에 today=leave·calendar=enter 각 ≥1회, 기록 시점 두 화면 모두 hidden 아님, 새 훅(data-switching·data-dir·aria-hidden·animationName)', async () => {
     const out = [];
     for (const viewport of [{ width: 390, height: 844 }, { width: 360, height: 640 }]) {
       const { ctx, page } = await open(browser, { settle: 300, seed: SEED3N, observer: true, viewport });
@@ -279,10 +279,10 @@ await run(async (browser) => {
       await page.evaluate(() => { window.__mo.length = 0; });
       const r = await page.evaluate(() => new Promise((res) => {
         const t0 = performance.now();
-        document.querySelector('[data-testid="tab-log"]').click();
+        document.querySelector('[data-testid="tab-calendar"]').click();
         const at150 = {};
         setTimeout(() => {
-          const T = document.getElementById('screen-today'), L = document.getElementById('screen-log'), S = document.querySelector('.screens');
+          const T = document.getElementById('screen-today'), L = document.getElementById('screen-calendar'), S = document.querySelector('.screens');
           at150.hiddenToday = T.hidden; at150.hiddenLog = L.hidden;
           at150.todayAria = T.getAttribute('aria-hidden'); at150.switching = S.getAttribute('data-switching'); at150.dir = S.getAttribute('data-dir');
           at150.todayAnim = getComputedStyle(T).animationName; at150.logAnim = getComputedStyle(L).animationName;
@@ -292,7 +292,7 @@ await run(async (browser) => {
       }));
       const mo = r.mo;
       const leave = mo.filter((m) => m.attr === 'data-transition' && m.id === 'screen-today' && m.val === 'leave');
-      const enter = mo.filter((m) => m.attr === 'data-transition' && m.id === 'screen-log' && m.val === 'enter');
+      const enter = mo.filter((m) => m.attr === 'data-transition' && m.id === 'screen-calendar' && m.val === 'enter');
       if (!leave.length) errs.push('today leave 기록 없음');
       if (!enter.length) errs.push('log enter 기록 없음');
       if (leave.length && enter.length) {
@@ -309,8 +309,8 @@ await run(async (browser) => {
       if (a.logAnim !== 'tab-enter') errs.push('들어오는 animationName=' + a.logAnim);
       await sleep(600);
       const s = await state(page);
-      if (s.visible.join() !== 'screen-log') errs.push('600ms 뒤 보이는 화면 ' + s.visible);
-      if (s.selected.join() !== 'log') errs.push('aria-selected ' + s.selected);
+      if (s.visible.join() !== 'screen-calendar') errs.push('600ms 뒤 보이는 화면 ' + s.visible);
+      if (s.selected.join() !== 'calendar') errs.push('aria-selected ' + s.selected);
       if (s.trans !== 0 || s.switching !== null || s.dir !== null || s.ariaHidden !== 0) errs.push('600ms 뒤 잔여 속성 ' + JSON.stringify(s));
       // 반대 방향(log → today): dir=-1
       await page.evaluate(() => document.querySelector('[data-testid="tab-today"]').click());
@@ -325,12 +325,12 @@ await run(async (browser) => {
 
   await check('T2 연타 150ms 간격 3탭(되돌아가기·처음 탭으로 끝나기 포함 6가지): 마지막 탭만 보임·aria-selected 1·data-transition 0·data-switching/dir/aria-hidden 없음', async () => {
     const orders = [
-      ['log', 'manage', 'today'], // 처음 탭으로 끝남
-      ['log', 'today', 'log'], // 떠나는 화면으로 되돌아감
-      ['log', 'today', 'manage'],
-      ['manage', 'log', 'today'],
+      ['calendar', 'manage', 'today'], // 처음 탭으로 끝남
+      ['calendar', 'today', 'calendar'], // 떠나는 화면으로 되돌아감
+      ['calendar', 'today', 'manage'],
+      ['manage', 'calendar', 'today'],
       ['manage', 'today', 'manage'],
-      ['log', 'manage', 'log'],
+      ['calendar', 'manage', 'calendar'],
     ];
     const errs = [];
     for (const order of orders) {
@@ -356,7 +356,7 @@ await run(async (browser) => {
     const { ctx, page } = await open(browser, { settle: 300, seed: SEED3N, reduced: true, observer: true });
     const errs = [];
     await page.evaluate(() => { window.__mo.length = 0; });
-    for (const n of ['log', 'manage', 'today']) {
+    for (const n of ['calendar', 'manage', 'today']) {
       const r = await page.evaluate((n) => new Promise((res) => {
         document.querySelector(`[data-testid="tab-${n}"]`).click();
         setTimeout(() => res({
@@ -446,7 +446,7 @@ await run(async (browser) => {
     rows.push(await pressNumbers(page, '[data-routine-id="r_1"] .level-btn', '.level-btn', null));
     await page.click(tid('tab-manage')); await sleep(500);
     rows.push(await pressNumbers(page, tid('btn-add-routine'), '.btn', async () => { await page.click(tid('btn-close')); await sleep(300); }));
-    rows.push(await pressNumbers(page, tid('tab-log'), '.tab', null));
+    rows.push(await pressNumbers(page, tid('tab-calendar'), '.tab', null));
     for (const r of rows) {
       pressRows.push(r);
       if (r.before !== 'none') errs.push(`${r.label} 누르기 전 ${r.before}`);
@@ -516,7 +516,7 @@ await run(async (browser) => {
     const errs = [];
     for (const rate of [1, 4]) {
       const { ctx, page } = await open(browser, { settle: 300, seed: fixtureRaw });
-      const tabs = await smooth(page, '탭 전환 3회', rate, { gap: 500, actions: [{ sel: tid('tab-log') }, { sel: tid('tab-manage') }, { sel: tid('tab-today') }] });
+      const tabs = await smooth(page, '탭 전환 3회', rate, { gap: 500, actions: [{ sel: tid('tab-calendar') }, { sel: tid('tab-manage') }, { sel: tid('tab-today') }] });
       await sleep(600);
       const lv = (l) => ({ sel: `[data-routine-id="r_old_a"] [data-level="${l}"]` });
       const pops = await smooth(page, '카드 팝 5회', rate, { gap: 400, actions: [lv('mini'), lv('more'), lv('max'), lv('mini'), lv('more')] });

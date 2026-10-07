@@ -10,7 +10,7 @@ window.RT = window.RT || {};
   document.addEventListener('touchstart', function () {}, { passive: true });
 
   // ---------- 탭 ----------
-  var TAB_ORDER = ['today', 'log', 'manage'];
+  var TAB_ORDER = ['today', 'calendar', 'manage'];
   var currentTab = null;
   var tabTimer = null;         // 탭 전환 정리 타이머는 하나만
   var screensEl = document.querySelector('.screens');
@@ -51,6 +51,7 @@ window.RT = window.RT || {};
     }
 
     target.hidden = false;
+    if (name === 'calendar' && RT.calendar) RT.calendar.refresh(); // 읽기만: 최신 기록으로 다시 그림
     if (instant || reduced() || !prev) {
       if (leaving) leaving.hidden = true;
       flushPendingEnter();

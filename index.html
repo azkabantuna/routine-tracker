@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="css/cards.css">
   <link rel="stylesheet" href="css/overlays.css">
   <link rel="stylesheet" href="css/effects.css">
+  <link rel="stylesheet" href="css/calendar.css">
   <script src="js/date.js" defer></script>
   <script src="js/emoji.js" defer></script>
   <script src="js/store.js" defer></script>
@@ -18,6 +19,7 @@
   <script src="js/character.js" defer></script>
   <script src="js/screens.js" defer></script>
   <script src="js/sheets.js" defer></script>
+  <script src="js/calendar.js" defer></script>
   <script src="js/app.js" defer></script>
 </head>
 <body>
@@ -51,13 +53,24 @@
         <ul class="card-list" id="card-list"></ul>
       </section>
 
-      <!-- 2. 기록 -->
-      <section class="screen" id="screen-log" data-screen="log" aria-labelledby="log-title" hidden>
-        <h1 class="screen-title" id="log-title">기록</h1>
-        <div class="placeholder" data-testid="log-placeholder">
-          <p class="empty-emoji" aria-hidden="true">📅</p>
-          <p>달력 기록은 M2 에서 준비 중이에요.</p>
+      <!-- 2. 캘린더 (저장된 기록을 읽기만 함) -->
+      <section class="screen" id="screen-calendar" data-screen="calendar" data-testid="screen-calendar" aria-labelledby="cal-heading" hidden>
+        <h1 class="screen-title" id="cal-heading">캘린더</h1>
+        <div class="cal-stats">
+          <p class="cal-stat"><span class="cal-stat-label">🔥 연속</span> <strong data-testid="cal-streak" data-streak-state="none">0</strong><span>일</span></p>
+          <p class="cal-stat"><span class="cal-stat-label">이번 달</span> <strong data-testid="cal-month-count">0</strong><span>일 기록</span></p>
         </div>
+        <p class="cal-streak-note" id="cal-streak-note"></p>
+        <div class="cal-card">
+          <div class="cal-nav">
+            <button type="button" class="btn btn-small cal-nav-btn" data-testid="cal-prev" aria-label="이전 달">‹</button>
+            <h2 class="cal-title" data-testid="cal-title" aria-live="polite"></h2>
+            <button type="button" class="btn btn-small cal-nav-btn" data-testid="cal-next" aria-label="다음 달">›</button>
+          </div>
+          <div class="cal-weekdays" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+          <div class="cal-grid" data-testid="cal-grid" data-dir="0"></div>
+        </div>
+        <div class="cal-detail" data-testid="cal-detail" aria-live="polite"></div>
       </section>
 
       <!-- 3. 루틴 관리 -->
@@ -74,8 +87,8 @@
       <button type="button" class="tab" role="tab" data-tab="today" data-testid="tab-today" aria-selected="true">
         <span class="tab-icon" aria-hidden="true">☀️</span><span>오늘</span>
       </button>
-      <button type="button" class="tab" role="tab" data-tab="log" data-testid="tab-log" aria-selected="false">
-        <span class="tab-icon" aria-hidden="true">📅</span><span>기록</span>
+      <button type="button" class="tab" role="tab" data-tab="calendar" data-testid="tab-calendar" aria-selected="false">
+        <span class="tab-icon" aria-hidden="true">📅</span><span>캘린더</span>
       </button>
       <button type="button" class="tab" role="tab" data-tab="manage" data-testid="tab-manage" aria-selected="false">
         <span class="tab-icon" aria-hidden="true">📝</span><span>루틴 관리</span>

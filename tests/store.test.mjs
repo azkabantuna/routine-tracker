@@ -116,7 +116,7 @@ await run(async (browser) => {
         if ((await page.locator(tid('routine-card')).count()) !== 3) errs.push(label + ' 카드 수');
       };
       await chk('로드');
-      for (const n of ['log', 'manage', 'today']) { await page.click(tid('tab-' + n)); await sleep(400); }
+      for (const n of ['calendar', 'manage', 'today']) { await page.click(tid('tab-' + n)); await sleep(400); }
       await chk('탭 왕복');
       await page.reload(); await sleep(400); await chk('reload');
       await ctx.close();

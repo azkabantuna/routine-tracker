@@ -5,19 +5,15 @@ import { run, check, sleep, tid, getStore, open, addRoutine, progress, noHScroll
 await run(async (browser) => {
   // ---------- (옛 m1) 빈 상태·추가·강도·수정·삭제·새로고침·HTML 안 해석 ----------
   const { ctx, page } = await open(browser, { acceptDialogs: true });
-  await check('1. 빈 상태 안내·첫 루틴 버튼·가로 스크롤 없음·탭 3개·기록 탭 준비 중', async () => {
+  await check('1. 빈 상태 안내·첫 루틴 버튼·가로 스크롤 없음·탭 3개·캘린더 탭 표시', async () => {
     const errs = [];
     if (!(await page.locator(tid('empty-state')).isVisible())) errs.push('empty-state 안 보임');
     if (!(await page.locator(tid('btn-first-routine')).isVisible())) errs.push('첫 루틴 버튼 안 보임');
     if (!(await noHScroll(page))) errs.push('가로 스크롤 있음');
-    for (const t of ['tab-today', 'tab-log', 'tab-manage']) if (!(await page.locator(tid(t)).isVisible())) errs.push(t + ' 안 보임');
-    await page.click(tid('tab-log'));
-    const ph = page.locator(tid('log-placeholder'));
-    if (!(await ph.isVisible())) errs.push('기록 placeholder 안 보임');
-    const txt = (await page.locator('#screen-log').innerText()).trim();
-    if (!txt.includes('M2 에서 준비 중')) errs.push('"M2 에서 준비 중" 문구 없음: ' + txt);
-    if ((await page.locator('#screen-log button, #screen-log input').count()) > 0) errs.push('기록 화면에 다른 컨트롤 있음');
-    if ((await page.locator(tid('tab-log')).getAttribute('aria-selected')) !== 'true') errs.push('tab-log aria-selected 아님');
+    for (const t of ['tab-today', 'tab-calendar', 'tab-manage']) if (!(await page.locator(tid(t)).isVisible())) errs.push(t + ' 안 보임');
+    await page.click(tid('tab-calendar'));
+    if (!(await page.locator('#screen-calendar').isVisible())) errs.push('캘린더 화면 안 보임');
+    if ((await page.locator(tid('tab-calendar')).getAttribute('aria-selected')) !== 'true') errs.push('tab-calendar aria-selected 아님');
     // 첫 루틴 버튼 → 시트 열림
     await page.click(tid('tab-today'));
     await page.click(tid('btn-first-routine'));

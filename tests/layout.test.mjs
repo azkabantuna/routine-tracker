@@ -33,7 +33,7 @@ await run(async (browser) => {
     await check('0-1 첫 로드 콘솔 오류 0 (스크립트 순서)', async () => consoleErrors.length === 0 || consoleErrors.join(' | '));
     await check('0-2 스크립트 순서 date→emoji→store→streak→effects→app, css/effects.css 링크', async () => {
       const o = await page.evaluate(() => ({ js: [...document.querySelectorAll('script[src]')].map((s) => s.getAttribute('src')), css: [...document.querySelectorAll('link[rel=stylesheet]')].map((s) => s.getAttribute('href')) }));
-      const want = ['js/date.js', 'js/emoji.js', 'js/store.js', 'js/routines.js', 'js/streak.js', 'js/effects.js', 'js/character.js', 'js/screens.js', 'js/sheets.js', 'js/app.js'];
+      const want = ['js/date.js', 'js/emoji.js', 'js/store.js', 'js/routines.js', 'js/streak.js', 'js/effects.js', 'js/character.js', 'js/screens.js', 'js/sheets.js', 'js/calendar.js', 'js/app.js'];
       if (JSON.stringify(o.js) !== JSON.stringify(want)) return '순서: ' + o.js.join(',');
       return o.css.includes('css/effects.css') || 'effects.css 링크 없음';
     });
@@ -75,7 +75,7 @@ await run(async (browser) => {
   await check('T3 전환 중 매 rAF documentElement.scrollWidth ≤ innerWidth (390x844·360x640 × 순서 today→log→manage·manage→today·log→today)', async () => {
     const errs = [];
     for (const viewport of [{ width: 390, height: 844 }, { width: 360, height: 640 }]) {
-      for (const [start, steps] of [['today', ['log', 'manage']], ['manage', ['today']], ['log', ['today']]]) {
+      for (const [start, steps] of [['today', ['calendar', 'manage']], ['manage', ['today']], ['calendar', ['today']]]) {
         const { ctx, page } = await open(browser, { seed: seedN(6), viewport, settle: 300 });
         if (start !== 'today') { await page.click(tid('tab-' + start)); await sleep(500); }
         const r = await page.evaluate((steps) => new Promise((res) => {
