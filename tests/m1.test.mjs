@@ -1,4 +1,7 @@
 // M1 통과 기준 자동 시험 (검토봇 C)
+// R1(v2): window.confirm → 화면 안 확인창(confirm-sheet) 으로 바뀌어 수정함 (2026-10-07).
+//   수정은 "3. 수정 즉시 반영…" 시험의 삭제 단계 두 곳뿐: (1) btn-confirm-delete 클릭 추가,
+//   (2) "카드 남음" 확인 전에 카드가 DOM 에서 빠질 때까지(최대 1초) 대기. 그 외 로직은 그대로.
 // 실행: 레포 루트에서  node projects/routine-tracker/tests/m1.test.mjs
 // 먼저 서버를 켜 두어야 함: cd projects/routine-tracker && python3 -m http.server 8080
 import { chromium } from 'playwright';
@@ -190,7 +193,10 @@ try {
     // 삭제
     await page.click(tid('tab-manage'));
     await page.locator(`${tid('manage-item')}[data-routine-id="${idA}"] ${tid('btn-delete')}`).click();
+    await page.click(tid('btn-confirm-delete')); // R1(v2): 화면 안 확인창의 삭제 버튼
     await page.click(tid('tab-today'));
+    // R1(v2): 카드 퇴장 연출(≈250ms)이 끝나 DOM 에서 빠질 때까지 기다린 뒤 확인
+    await page.waitForSelector(`${tid('routine-card')}[data-routine-id="${idA}"]`, { state: 'detached', timeout: 1000 }).catch(() => {});
     if ((await page.locator(`${tid('routine-card')}[data-routine-id="${idA}"]`).count()) !== 0) errs.push('삭제 후 카드 남음');
     const s = await getStore(page);
     const raw = JSON.stringify(s.logs);

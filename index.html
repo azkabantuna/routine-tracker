@@ -6,9 +6,12 @@
   <meta name="theme-color" content="#FF7A3D">
   <title>루틴 트래커</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/effects.css">
   <script src="js/date.js" defer></script>
+  <script src="js/emoji.js" defer></script>
   <script src="js/store.js" defer></script>
   <script src="js/streak.js" defer></script>
+  <script src="js/effects.js" defer></script>
   <script src="js/app.js" defer></script>
 </head>
 <body>
@@ -77,11 +80,28 @@
     <div class="sheet-backdrop" id="sheet-backdrop" hidden>
       <form class="sheet" data-testid="sheet" id="sheet" hidden novalidate>
         <h2 class="sheet-title" id="sheet-title">루틴 추가</h2>
-        <label class="field">
-          <span class="field-label">이름</span>
-          <input type="text" name="name" data-testid="input-name" id="input-name" maxlength="100" autocomplete="off" placeholder="예: 운동">
-        </label>
+        <div class="name-row">
+          <label class="field field-name">
+            <span class="field-label">이름</span>
+            <input type="text" name="name" data-testid="input-name" id="input-name" maxlength="100" autocomplete="off" placeholder="예: 운동">
+          </label>
+          <label class="field field-emoji">
+            <span class="field-label">이모지</span>
+            <input type="text" name="emoji" data-testid="input-emoji" id="input-emoji" maxlength="20" autocomplete="off" placeholder="🙂" aria-label="이모지 (한 개)">
+          </label>
+        </div>
         <p class="error-name" data-testid="error-name" id="error-name" role="alert" hidden>루틴 이름을 적어 주세요</p>
+        <p class="error-name" data-testid="error-emoji" id="error-emoji" role="alert" hidden>이모지 한 개만 넣어 주세요</p>
+        <div class="emoji-pick" data-testid="emoji-pick" id="emoji-pick" role="group" aria-label="추천 이모지">
+          <button type="button" class="pick" data-emoji="🏃">🏃</button>
+          <button type="button" class="pick" data-emoji="📚">📚</button>
+          <button type="button" class="pick" data-emoji="💧">💧</button>
+          <button type="button" class="pick" data-emoji="🧘">🧘</button>
+          <button type="button" class="pick" data-emoji="💪">💪</button>
+          <button type="button" class="pick" data-emoji="🥗">🥗</button>
+          <button type="button" class="pick" data-emoji="😴">😴</button>
+          <button type="button" class="pick" data-emoji="✍️">✍️</button>
+        </div>
         <label class="field">
           <span class="field-label"><span class="dot dot-mini"></span>mini (아주 조금)</span>
           <input type="text" name="mini" data-testid="input-mini" id="input-mini" maxlength="100" autocomplete="off" placeholder="예: 푸시업 5개">
@@ -99,6 +119,15 @@
           <button type="submit" class="btn btn-primary" data-testid="btn-save" id="btn-save">저장</button>
         </div>
       </form>
+
+      <!-- 삭제 확인창 -->
+      <div class="sheet confirm-sheet" data-testid="confirm-sheet" id="confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="confirm-text" hidden>
+        <p class="confirm-text" data-testid="confirm-text" id="confirm-text"></p>
+        <div class="sheet-actions confirm-actions">
+          <button type="button" class="btn btn-ghost" data-testid="btn-cancel-delete" id="btn-cancel-delete">취소</button>
+          <button type="button" class="btn btn-primary btn-danger-solid" data-testid="btn-confirm-delete" id="btn-confirm-delete">삭제</button>
+        </div>
+      </div>
     </div>
   </div>
 </body>

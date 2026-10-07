@@ -48,7 +48,34 @@ button, input { font: inherit; color: inherit; }
 }
 
 .screens {
+  position: relative;
   padding: 16px 16px calc(var(--tabbar-h) + 24px);
+}
+@supports (overflow: clip) {
+  .screens { overflow-x: clip; }
+}
+
+/* ---------- 탭 전환 (transform·opacity 만, 이동 16px = 화면 좌우 여백) ---------- */
+.screen[data-transition="enter"] { animation: tab-enter 260ms ease both; }
+.screen[data-transition="leave"] {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  pointer-events: none;
+  animation: tab-leave 260ms ease both;
+}
+.screens[data-dir="1"] .screen[data-transition="enter"] { --from: 16px; }
+.screens[data-dir="-1"] .screen[data-transition="enter"] { --from: -16px; }
+.screens[data-dir="1"] .screen[data-transition="leave"] { --to: -16px; }
+.screens[data-dir="-1"] .screen[data-transition="leave"] { --to: 16px; }
+@keyframes tab-enter {
+  from { opacity: 0; transform: translateX(var(--from, 16px)); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes tab-leave {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateX(var(--to, -16px)); }
 }
 
 .screen-title {
@@ -67,16 +94,16 @@ button, input { font: inherit; color: inherit; }
   border-radius: var(--radius-btn);
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.btn:active { transform: translateY(3px); }
 
 .btn-primary {
   background: var(--primary);
   color: #fff;
   box-shadow: 0 4px 0 var(--primary-dark);
 }
-.btn-primary:active { box-shadow: 0 1px 0 var(--primary-dark); }
+.btn-primary:active { box-shadow: 0 1px 0 var(--primary-dark); } /* 그림자는 transition 없이 즉시 */
+.btn-danger-solid { background: var(--danger); box-shadow: 0 4px 0 #B0343A; }
+.btn-danger-solid:active { box-shadow: 0 1px 0 #B0343A; }
 
 .btn-ghost {
   background: #fff;
@@ -117,10 +144,12 @@ button, input { font: inherit; color: inherit; }
 }
 .progress-fill {
   height: 100%;
-  width: 0;
+  width: 100%;
   border-radius: 999px;
   background: var(--primary);
-  transition: width 0.3s ease;
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 300ms ease;
 }
 
 /* ---------- 빈 상태 ---------- */
@@ -150,14 +179,42 @@ button, input { font: inherit; color: inherit; }
   padding: 16px;
   margin-bottom: 14px;
   border: 3px solid transparent;
-  transition: border-color 0.25s ease, background-color 0.25s ease;
+}
+.card[data-anim="enter"] { animation: card-enter 300ms ease-out both; }
+.card[data-anim="pop"] { animation: card-pop 350ms ease; }
+.card[data-leaving="true"] { animation: card-leave 250ms ease-in both; pointer-events: none; }
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes card-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+@keyframes card-leave {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(.96); }
 }
 .card[data-current="mini"] { border-color: var(--mini); background: #F4FBF2; }
 .card[data-current="more"] { border-color: var(--more); background: #F0F7FF; }
 .card[data-current="max"]  { border-color: var(--max);  background: #FFF8E1; }
 
-.card-name {
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 0 12px;
+}
+.routine-emoji {
+  flex-shrink: 0;
+  font-size: 24px;
+  line-height: 1;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+.card-name {
+  margin: 0;
+  min-width: 0;
   font-size: 19px;
   font-weight: 800;
   overflow-wrap: anywhere;
@@ -180,9 +237,31 @@ button, input { font: inherit; color: inherit; }
   font-size: 16px;
   cursor: pointer;
   box-shadow: 0 4px 0 var(--line);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease;
 }
-.level-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--line); }
+.level-btn:active { box-shadow: 0 1px 0 var(--line); }
+
+/* 버튼 누름감: 누르면 빠르게 작아지고(80ms), 떼면 오버슈트로 튀어오름(280ms). transform 만 움직임 */
+.btn, .level-btn, .tab {
+  transform: none;
+  transition: transform 280ms cubic-bezier(.34, 1.56, .64, 1);
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.btn:active, .level-btn:active, .tab:active {
+  transform: translateY(3px) scale(.90);
+  transition-duration: 80ms;
+}
+/* 뗄 때 한 번 통통 (JS 가 data-bounce 를 450ms 동안 붙임) */
+.btn[data-bounce="true"], .level-btn[data-bounce="true"], .tab[data-bounce="true"] {
+  animation: btn-bounce 340ms ease-out both;
+}
+@keyframes btn-bounce {
+  0% { transform: translateY(3px) scale(.90); }
+  40% { transform: scale(1.08); }
+  70% { transform: scale(.985); }
+  100% { transform: none; }
+}
 
 .level-mini { color: var(--mini-dark); }
 .level-more { color: var(--more-dark); }
@@ -214,7 +293,14 @@ button, input { font: inherit; color: inherit; }
   margin-bottom: 12px;
 }
 .manage-info { flex: 1; min-width: 0; }
-.manage-name { margin: 0; font-weight: 800; overflow-wrap: anywhere; }
+.manage-head { display: flex; align-items: center; gap: 8px; }
+.manage-emoji {
+  flex-shrink: 0;
+  font-size: 22px;
+  line-height: 1;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+.manage-name { margin: 0; min-width: 0; font-weight: 800; overflow-wrap: anywhere; }
 .manage-sub { margin: 2px 0 0; font-size: 13px; color: var(--text-soft); overflow-wrap: anywhere; }
 .manage-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
@@ -254,18 +340,22 @@ button, input { font: inherit; color: inherit; }
 /* ---------- 토스트·배너 ---------- */
 .toast {
   position: fixed;
-  top: 14px;
+  bottom: calc(var(--tabbar-h) + 12px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   max-width: calc(100% - 32px);
   background: var(--text);
   color: #fff;
   font-weight: 800;
-  padding: 12px 20px;
+  font-size: 14px;
+  padding: 8px 20px;
   border-radius: 999px;
   box-shadow: 0 8px 20px rgba(43, 45, 66, 0.25);
-  z-index: 30;
+  z-index: 15;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   pointer-events: none;
 }
 
@@ -325,6 +415,43 @@ button, input { font: inherit; color: inherit; }
 }
 .field input:focus { outline: none; border-color: var(--primary); }
 
+/* 이름 + 이모지 한 줄 */
+.name-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 12px; }
+.name-row .field { margin-bottom: 0; }
+.field-name { flex: 1; min-width: 0; }
+.field-emoji { flex: none; width: 64px; }
+.field-emoji input {
+  height: 48px;
+  padding: 0 4px;
+  text-align: center;
+  font-size: 22px;
+  line-height: 1;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+
+.emoji-pick {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 2px;
+  margin: 0 0 12px;
+}
+.pick {
+  min-height: 44px;
+  padding: 0;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+.pick:active { background: var(--line); }
+@media (max-width: 380px) {
+  .emoji-pick { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .pick { min-height: 40px; }
+}
+
 .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
 .dot-mini { background: var(--mini); }
 .dot-more { background: var(--more); }
@@ -344,7 +471,11 @@ button, input { font: inherit; color: inherit; }
   margin-top: 8px;
 }
 
+.confirm-text { margin: 0 0 16px; font-weight: 800; font-size: 17px; overflow-wrap: anywhere; }
+.confirm-actions { grid-template-columns: 1fr 1fr; }
+
 /* ---------- 움직임 줄이기 ---------- */
+/* 애니메이션·transition 은 끄고, 눌렀을 때 작아지는 모양(:active transform)은 그대로 둔다 */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation: none !important;

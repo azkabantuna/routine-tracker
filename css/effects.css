@@ -1,0 +1,82 @@
+/* 축포·이모지 입자. 애니메이션은 transform·opacity 만 쓴다. */
+.celebrate {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 14; /* 탭바 10 위, 토스트 15 아래, 시트 배경 20 아래 */
+}
+
+.celebrate .emoji-burst,
+.celebrate .emoji-rain {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+}
+
+.confetti {
+  position: absolute;
+  border-radius: 2px;
+  animation-name: confetti-burst;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+
+.emoji-particle {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  line-height: 1;
+  -webkit-user-select: none;
+  user-select: none;
+  animation-fill-mode: both;
+}
+.emoji-particle[data-kind="burst"] {
+  animation-name: particle-burst;
+  animation-timing-function: ease-out;
+}
+.emoji-particle[data-kind="rain"] {
+  animation-name: particle-fall;
+  animation-timing-function: ease-in;
+}
+
+.celebrate-glow {
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 200, 40, 0.85) 0%, rgba(255, 184, 0, 0.4) 40%, rgba(255, 184, 0, 0) 70%);
+  animation: glow-pulse 1800ms ease-out both;
+}
+
+/* 터짐: 0~50% 로 퍼지고, 나머지는 중력으로 조금 떨어지며 사라짐 */
+@keyframes confetti-burst {
+  0% { transform: translate(0, 0) rotate(0deg) scale(.4); opacity: 1; }
+  50% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), calc(var(--dy) + var(--g))) rotate(calc(var(--rot) * 1.6)) scale(1); opacity: 0; }
+}
+@keyframes particle-burst {
+  0% { transform: translate(0, 0) rotate(0deg) scale(.3); opacity: 1; }
+  50% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(1.1); opacity: 1; }
+  100% { transform: translate(var(--dx), calc(var(--dy) + var(--g))) rotate(var(--rot)) scale(1); opacity: 0; }
+}
+/* 우수수: 위에서 아래로 (--dy = 화면 높이의 90%) */
+@keyframes particle-fall {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
+}
+@keyframes glow-pulse {
+  0% { transform: scale(.4); opacity: 0; }
+  50% { transform: scale(1); opacity: .55; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .celebrate, .celebrate * { animation: none !important; }
+  .celebrate { display: none; }
+}

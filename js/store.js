@@ -100,7 +100,13 @@ window.RT = window.RT || {};
     return typeof v === 'string' ? v.trim() : '';
   }
 
-  // fields: { name, mini, more, max }. 이름이 비면 null 을 돌려주고 아무것도 바꾸지 않는다.
+  // 이모지: 한 개짜리 이모지만 통과. 아니면 '' (저장하지 않음)
+  function cleanEmoji(v) {
+    var s = clean(v);
+    return s && RT.emoji && RT.emoji.isSingleEmoji(s) ? s : '';
+  }
+
+  // fields: { name, mini, more, max, emoji(선택) }. 이름이 비면 null 을 돌려주고 아무것도 바꾸지 않는다.
   store.addRoutine = function (fields) {
     var name = clean(fields.name);
     if (!name) return null;
@@ -117,6 +123,8 @@ window.RT = window.RT || {};
       createdAt: RT.today(),
       order: maxOrder + 1
     };
+    var emoji = cleanEmoji(fields.emoji);
+    if (emoji) routine.emoji = emoji;
     store.state.routines.push(routine);
     store.save();
     return routine;
@@ -130,6 +138,12 @@ window.RT = window.RT || {};
     r.mini = clean(fields.mini);
     r.more = clean(fields.more);
     r.max = clean(fields.max);
+    // emoji 는 fields 에 있을 때만 바꾼다 (없으면 기존 값 유지, 빈 값·틀린 값이면 키 삭제)
+    if ('emoji' in fields) {
+      var emoji = cleanEmoji(fields.emoji);
+      if (emoji) r.emoji = emoji;
+      else delete r.emoji;
+    }
     store.save();
     return r;
   };
