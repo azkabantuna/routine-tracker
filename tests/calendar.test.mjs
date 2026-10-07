@@ -321,4 +321,181 @@ await run(async (browser) => {
     await ctx.close();
     return errs.length ? errs.join('; ') : true;
   });
+
+  // ---- 16. 여러 루틴: 개수(기준1) ----
+  await check('16. 여러 루틴 표시: 옛 시드 10-06(3개) → data-routines=3·cal-dot 3개(max→more→mini 순)·cal-dot-more 없음; 09-14·2026-07 칸 → 점 0개', async () => {
+    const { ctx, page } = await openCal(browser, { seed: fixtureRaw });
+    const errs = [];
+    // 10-06 확인
+    const cell0606 = cell(page, '2026-10-06');
+    const routines0606 = await cell0606.getAttribute('data-routines');
+    if (routines0606 !== '3') errs.push(`10-06 data-routines=${routines0606} (기대 3)`);
+    const dots0606 = await page.locator(`[data-date="2026-10-06"] [data-testid="cal-dot"]`).all();
+    if (dots0606.length !== 3) errs.push(`10-06 cal-dot 수=${dots0606.length} (기대 3)`);
+    if (dots0606.length === 3) {
+      const levels = [];
+      for (const d of dots0606) levels.push(await d.getAttribute('data-level'));
+      if (levels.join(',') !== 'max,more,mini') errs.push(`10-06 점 순서=${levels.join(',')} (기대 max,more,mini)`);
+    }
+    const more0606 = await page.locator(`[data-date="2026-10-06"] [data-testid="cal-dot-more"]`).count();
+    if (more0606 !== 0) errs.push(`10-06 cal-dot-more 수=${more0606} (기대 0)`);
+    // 09-14 확인
+    await page.locator(tid('cal-prev')).click(); await sleep(450);
+    const dots0914 = await page.locator(`[data-date="2026-09-14"] [data-testid="cal-dot"]`).all();
+    if (dots0914.length !== 0) errs.push(`09-14 cal-dot 수=${dots0914.length} (기대 0)`);
+    // 2026-07 확인
+    await page.locator(tid('cal-prev')).click(); await sleep(350);
+    await page.locator(tid('cal-prev')).click(); await sleep(450);
+    const dotsJuly = await page.locator('[data-date="2026-07-15"] [data-testid="cal-dot"]').count();
+    if (dotsJuly !== 0) errs.push(`2026-07 칸 점 수=${dotsJuly} (기대 0)`);
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // ---- 17. 여러 루틴: 넘침(기준2) ----
+  await check('17. 많은 루틴 날: 10개 → 점 2개+"+8", 4개 → 점 2개+"+2" (자리 max 3)', async () => {
+    const [a, b, c] = IDS;
+    const extra = [];
+    for (let i = 0; i < 7; i++) {
+      extra.push({ id: `r_extra_${i}`, name: `루틴${i+4}`, mini: '1', more: '2', max: '3', createdAt: '2026-09-17', order: 3 + i });
+    }
+    const routines = [...FIX.routines, ...extra];
+    const routineMap = {};
+    for (const r of routines) routineMap[r.id] = r;
+    const seed = withLogs({
+      '2026-10-05': { [a]: 'max', [b]: 'more', [c]: 'mini', [extra[0].id]: 'max', [extra[1].id]: 'more', [extra[2].id]: 'mini', [extra[3].id]: 'max', [extra[4].id]: 'more', [extra[5].id]: 'mini', [extra[6].id]: 'max' },
+      '2026-10-04': { [a]: 'mini', [b]: 'mini', [c]: 'mini', [extra[0].id]: 'mini' },
+    }, routines);
+    const { ctx, page } = await openCal(browser, { seed });
+    const errs = [];
+    // 10-05 확인
+    const routines0605 = await cell(page, '2026-10-05').getAttribute('data-routines');
+    if (routines0605 !== '10') errs.push(`10-05 data-routines=${routines0605} (기대 10)`);
+    const dots0605 = await page.locator(`[data-date="2026-10-05"] [data-testid="cal-dot"]`).all();
+    if (dots0605.length !== 2) errs.push(`10-05 점 수=${dots0605.length} (기대 2)`);
+    const more0605 = await page.locator(`[data-date="2026-10-05"] [data-testid="cal-dot-more"]`).first();
+    const moreText0605 = await more0605.innerText().catch(() => '');
+    if (moreText0605 !== '+8') errs.push(`10-05 "+N" 텍스트="${moreText0605}" (기대 "+8")`);
+    // 10-04 확인 (4개 루틴)
+    const routines0604 = await cell(page, '2026-10-04').getAttribute('data-routines');
+    if (routines0604 !== '4') errs.push(`10-04 data-routines=${routines0604} (기대 4)`);
+    const dots0604 = await page.locator(`[data-date="2026-10-04"] [data-testid="cal-dot"]`).all();
+    if (dots0604.length !== 2) errs.push(`10-04 점 수=${dots0604.length} (기대 2)`);
+    const more0604 = await page.locator(`[data-date="2026-10-04"] [data-testid="cal-dot-more"]`).first();
+    const moreText0604 = await more0604.innerText().catch(() => '');
+    if (moreText0604 !== '+2') errs.push(`10-04 "+N" 텍스트="${moreText0604}" (기대 "+2")`);
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // ---- 18. 여러 루틴: 칸 크기 불변(기준3) ----
+  await check('18. 칸 크기 불변: 360·390px 에서 10개 루틴 날 getBoundingClientRect 폭·높이 = 빈 이웃 칸(±1px), 점·"+N"이 칸 안, 칸 너비 ≥40px', async () => {
+    const [a, b, c] = IDS;
+    const extra = [];
+    for (let i = 0; i < 7; i++) {
+      extra.push({ id: `r_extra_18_${i}`, name: `루틴${i+4}`, mini: '1', more: '2', max: '3', createdAt: '2026-09-17', order: 3 + i });
+    }
+    const routines = [...FIX.routines, ...extra];
+    const seed = withLogs({
+      '2026-10-05': { [a]: 'max', [b]: 'more', [c]: 'mini', [extra[0].id]: 'max', [extra[1].id]: 'more', [extra[2].id]: 'mini', [extra[3].id]: 'max', [extra[4].id]: 'more', [extra[5].id]: 'mini', [extra[6].id]: 'max' },
+    }, routines);
+    const errs = [];
+    for (const [w, h] of [[360, 640], [390, 844]]) {
+      const { ctx, page } = await openCal(browser, { seed, viewport: { width: w, height: h } });
+      // 10-05 (10개)와 인접한 빈 칸 비교
+      const cell0605 = cell(page, '2026-10-05');
+      const cell0604 = cell(page, '2026-10-04'); // 기록 없는 칸
+      const rect0605 = await cell0605.evaluate((e) => e.getBoundingClientRect());
+      const rect0604 = await cell0604.evaluate((e) => e.getBoundingClientRect());
+      const wDiff = Math.abs(rect0605.width - rect0604.width);
+      const hDiff = Math.abs(rect0605.height - rect0604.height);
+      if (wDiff > 1) errs.push(`${w}: 10개 날 폭 차이 ${wDiff.toFixed(1)}px (> 1)`);
+      if (hDiff > 1) errs.push(`${w}: 10개 날 높이 차이 ${hDiff.toFixed(1)}px (> 1)`);
+      // 점이 칸 안에 있는지
+      const dots = await page.locator(`[data-date="2026-10-05"] [data-testid="cal-dot"]`).evaluateAll((els) => els.map((e) => e.getBoundingClientRect()));
+      const more = await page.locator(`[data-date="2026-10-05"] [data-testid="cal-dot-more"]`).evaluate((e) => e ? e.getBoundingClientRect() : null);
+      const cellRect = rect0605;
+      for (const d of dots) {
+        if (d.left < cellRect.left - 1 || d.right > cellRect.right + 1 || d.top < cellRect.top - 1 || d.bottom > cellRect.bottom + 1) {
+          errs.push(`${w}: 점이 칸 밖 (dot ${d.left.toFixed(0)},${d.top.toFixed(0)} cell ${cellRect.left.toFixed(0)},${cellRect.top.toFixed(0)}-${cellRect.right.toFixed(0)},${cellRect.bottom.toFixed(0)})`);
+          break;
+        }
+      }
+      if (more) {
+        if (more.left < cellRect.left - 1 || more.right > cellRect.right + 1 || more.top < cellRect.top - 1 || more.bottom > cellRect.bottom + 1) {
+          errs.push(`${w}: "+N"이 칸 밖`);
+        }
+      }
+      // 칸 너비 >= 40px
+      if (w === 360 && rect0605.width < 40) errs.push(`360: 10개 날 칸 폭 ${rect0605.width.toFixed(1)}px (< 40)`);
+      await ctx.close();
+    }
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // ---- 19. 여러 루틴: 강도 색 구분(기준4) ----
+  await check('19. 점 색: mini·more·max 셋 다르고, 테두리 1px 어두운 색(투명 아님)', async () => {
+    const [a, b, c] = IDS;
+    const seed = withLogs({ '2026-10-02': { [a]: 'mini' }, '2026-10-03': { [b]: 'more' }, '2026-10-04': { [c]: 'max' } });
+    const { ctx, page } = await openCal(browser, { seed });
+    const errs = [];
+    const dotMini = page.locator(`[data-date="2026-10-02"] [data-testid="cal-dot"]`).first();
+    const dotMore = page.locator(`[data-date="2026-10-03"] [data-testid="cal-dot"]`).first();
+    const dotMax = page.locator(`[data-date="2026-10-04"] [data-testid="cal-dot"]`).first();
+    const bgMini = await dotMini.evaluate((e) => getComputedStyle(e).backgroundColor);
+    const bgMore = await dotMore.evaluate((e) => getComputedStyle(e).backgroundColor);
+    const bgMax = await dotMax.evaluate((e) => getComputedStyle(e).backgroundColor);
+    if (new Set([bgMini, bgMore, bgMax]).size !== 3) errs.push(`점 배경색이 같음: mini=${bgMini} more=${bgMore} max=${bgMax}`);
+    const borderMini = await dotMini.evaluate((e) => getComputedStyle(e).borderColor);
+    if (borderMini === 'transparent' || borderMini === 'rgba(0, 0, 0, 0)') errs.push(`mini 점 테두리가 투명`);
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // ---- 20. 여러 루틴: 읽기 전용(기준6) ----
+  await check('20. 점 클릭과 무관: 캘린더 열기·점이 있는 날 여러 번 탭·다시 저장 탭 → localStorage 문자열 불변', async () => {
+    const [a, b, c] = IDS;
+    const extra = [{ id: 'r_extra_20', name: '루틴4', mini: '1', more: '2', max: '3', createdAt: '2026-09-17', order: 3 }];
+    const routines = [...FIX.routines, ...extra];
+    const seed = withLogs({ '2026-10-06': { [a]: 'max', [b]: 'more', [c]: 'mini', [extra[0].id]: 'max' } }, routines);
+    const { ctx, page } = await openCal(browser, { seed });
+    const before = await getRaw(page);
+    // 점이 있는 칸 여러 번 클릭
+    for (let i = 0; i < 3; i++) {
+      await cell(page, '2026-10-06').click(); await sleep(200);
+    }
+    const after = await getRaw(page);
+    await ctx.close();
+    const errs = [];
+    if (before !== after) errs.push(`저장값 변함 (${before.length}자 → ${after.length}자)`);
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // ---- 21. 여러 루틴: 상세 목록(기준5) ----
+  await check('21. 상세 목록: 점이 있는 날 탭 → 목록 줄 수 = data-routines (3개면 3줄, 10개면 10줄)', async () => {
+    const [a, b, c] = IDS;
+    const extra = [];
+    for (let i = 0; i < 7; i++) {
+      extra.push({ id: `r_extra_21_${i}`, name: `루틴${i+4}`, mini: '1', more: '2', max: '3', createdAt: '2026-09-17', order: 3 + i });
+    }
+    const routines = [...FIX.routines, ...extra];
+    const seed = withLogs({
+      '2026-10-06': { [a]: 'max', [b]: 'more', [c]: 'mini' },
+      '2026-10-05': { [a]: 'max', [b]: 'more', [c]: 'mini', [extra[0].id]: 'max', [extra[1].id]: 'more', [extra[2].id]: 'mini', [extra[3].id]: 'max', [extra[4].id]: 'more', [extra[5].id]: 'mini', [extra[6].id]: 'max' },
+    }, routines);
+    const { ctx, page } = await openCal(browser, { seed });
+    const errs = [];
+    // 3개 루틴 날
+    await cell(page, '2026-10-06').click(); await sleep(300);
+    const items06 = await page.locator(`${tid('cal-detail')} .cal-item`).count();
+    const routines06 = await cell(page, '2026-10-06').getAttribute('data-routines');
+    if (String(items06) !== routines06) errs.push(`10-06: 목록 ${items06}줄 (data-routines ${routines06})`);
+    // 10개 루틴 날
+    await cell(page, '2026-10-05').click(); await sleep(300);
+    const items05 = await page.locator(`${tid('cal-detail')} .cal-item`).count();
+    const routines05 = await cell(page, '2026-10-05').getAttribute('data-routines');
+    if (String(items05) !== routines05) errs.push(`10-05: 목록 ${items05}줄 (data-routines ${routines05})`);
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
 });

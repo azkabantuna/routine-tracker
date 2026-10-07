@@ -44,6 +44,7 @@
 
 .cal-pad { aspect-ratio: 1 / 1; }
 .cal-day {
+  position: relative;
   aspect-ratio: 1 / 1;
   min-width: 0;
   padding: 0;
@@ -70,6 +71,31 @@
 .cal-day[data-level="max"]  { background: var(--max);  color: var(--text); box-shadow: 0 3px 0 var(--max-dark); }
 .cal-day[data-today="true"] { border-color: var(--primary); font-weight: 900; outline: 2px solid var(--primary); outline-offset: 1px; }
 .cal-day[aria-pressed="true"] { border-color: var(--text); }
+
+/* 루틴별 강도 점 줄: absolute 라 칸 크기 불변 */
+.cal-dots {
+  position: absolute;
+  left: 0; right: 0; bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+  line-height: 1;
+}
+.cal-dot {
+  box-sizing: border-box;
+  flex: none;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  border: 1px solid var(--text);
+  background: var(--line);
+}
+.cal-day:not([data-routines="0"]) .cal-num { position: relative; top: -4px; }
+.cal-dot[data-level="mini"] { background: var(--mini); }
+.cal-dot[data-level="more"] { background: var(--more); }
+.cal-dot[data-level="max"]  { background: var(--max); }
+.cal-dot-more { flex: none; font-size: 9px; font-weight: 800; line-height: 1; white-space: nowrap; color: inherit; }
 
 .cal-detail {
   margin-top: 14px;

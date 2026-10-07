@@ -78,6 +78,23 @@ window.RT = window.RT || {};
       : info.state === 'pending' ? '오늘 하면 이어져요' : '오늘부터 시작해 봐요';
   }
 
+  // 그날 기록된 루틴의 강도 목록(max→more→mini, 같으면 루틴 order). showDetail 과 같은 규칙.
+  var RANK = { max: 0, more: 1, mini: 2 };
+  function dayLevels(day) {
+    var arr = [];
+    if (day && typeof day === 'object') {
+      for (var id in day) {
+        if (!Object.prototype.hasOwnProperty.call(day, id)) continue;
+        var lv = day[id];
+        if (lv !== 'mini' && lv !== 'more' && lv !== 'max') continue;
+        var r = RT.store.getRoutine(id);
+        arr.push({ level: lv, order: r ? (r.order || 0) : 1e9 });
+      }
+    }
+    arr.sort(function (a, b) { return RANK[a.level] - RANK[b.level] || a.order - b.order; });
+    return arr.map(function (x) { return x.level; });
+  }
+
   function renderMonth() {
     var today = RT.today();
     var first = new Date(view.y, view.m, 1);
@@ -107,12 +124,35 @@ window.RT = window.RT || {};
       b.setAttribute('data-date', date);
       b.setAttribute('data-level', lv || 'none');
       b.setAttribute('aria-pressed', date === selected ? 'true' : 'false');
-      b.setAttribute('aria-label', RT.koreanDate(date) + (lv ? ' ' + lv : ' 기록 없음'));
+      var dl = dayLevels(L[date]);
+      b.setAttribute('data-routines', String(dl.length));
+      b.setAttribute('aria-label', RT.koreanDate(date) + (lv ? ' ' + lv : ' 기록 없음') + (dl.length ? ' · 루틴 ' + dl.length + '개' : ''));
       if (date === today) b.setAttribute('data-today', 'true');
       var num = document.createElement('span');
       num.className = 'cal-num';
       num.textContent = String(dn);
       b.appendChild(num);
+      if (dl.length) {
+        var dots = document.createElement('span');
+        dots.className = 'cal-dots';
+        dots.setAttribute('aria-hidden', 'true');
+        var shown = dl.length <= 3 ? dl.length : 2;
+        for (var q = 0; q < shown; q++) {
+          var dot = document.createElement('span');
+          dot.className = 'cal-dot';
+          dot.setAttribute('data-testid', 'cal-dot');
+          dot.setAttribute('data-level', dl[q]);
+          dots.appendChild(dot);
+        }
+        if (dl.length > 3) {
+          var more = document.createElement('span');
+          more.className = 'cal-dot-more';
+          more.setAttribute('data-testid', 'cal-dot-more');
+          more.textContent = '+' + (dl.length - 2);
+          dots.appendChild(more);
+        }
+        b.appendChild(dots);
+      }
       frag.appendChild(b);
     }
     gridEl.textContent = '';
