@@ -1,0 +1,145 @@
+/* ---------- 토스트·배너 ---------- */
+.toast {
+  position: fixed;
+  bottom: calc(var(--tabbar-h) + 12px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  background: var(--text);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  padding: 8px 20px;
+  border-radius: 999px;
+  box-shadow: 0 8px 20px rgba(43, 45, 66, 0.25);
+  z-index: 15;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.banner-error {
+  margin: 12px 16px 0;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: #FFE8DC;
+  color: #8A3410;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* ---------- 시트 ---------- */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 45, 66, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 20;
+}
+.sheet {
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--bg);
+  border-radius: 24px 24px 0 0;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0));
+  animation: sheet-up 0.25s ease;
+}
+@keyframes sheet-up {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.sheet-title { margin: 0 0 14px; font-size: 21px; font-weight: 800; }
+
+.field { display: block; margin-bottom: 12px; }
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.field input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 16px;
+}
+.field input:focus { outline: none; border-color: var(--primary); }
+
+/* 이름 + 이모지 한 줄 */
+.name-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 12px; }
+.name-row .field { margin-bottom: 0; }
+.field-name { flex: 1; min-width: 0; }
+.field-emoji { flex: none; width: 64px; }
+.field-emoji input {
+  height: 48px;
+  padding: 0 4px;
+  text-align: center;
+  font-size: 22px;
+  line-height: 1;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+
+.emoji-pick {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 2px;
+  margin: 0 0 12px;
+}
+.pick {
+  min-height: 44px;
+  padding: 0;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+.pick:active { background: var(--line); }
+@media (max-width: 380px) {
+  .emoji-pick { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .pick { min-height: 40px; }
+}
+
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.dot-mini { background: var(--mini); }
+.dot-more { background: var(--more); }
+.dot-max { background: var(--max); }
+
+.error-name {
+  margin: -6px 0 12px;
+  color: var(--danger);
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.sheet-actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.confirm-text { margin: 0 0 16px; font-weight: 800; font-size: 17px; overflow-wrap: anywhere; }
+.confirm-actions { grid-template-columns: 1fr 1fr; }
+
+/* ---------- 움직임 줄이기 ---------- */
+/* 애니메이션·transition 은 끄고, 눌렀을 때 작아지는 모양(:active transform)은 그대로 둔다 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

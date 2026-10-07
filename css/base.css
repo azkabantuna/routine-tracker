@@ -1,0 +1,167 @@
+/* routine-tracker 기본 스타일 (M1: 깔끔한 기본, 큰 효과는 M3) */
+:root {
+  --bg: #FFF8F0;
+  --primary: #FF7A3D;
+  --primary-dark: #D95A20;
+  --text: #2B2D42;
+  --text-soft: #6B6E85;
+  --card: #FFFFFF;
+  --mini: #8BD17C;
+  --mini-dark: #5FA650;
+  --more: #4DA8FF;
+  --more-dark: #2A7FD4;
+  --max: #FFB800;
+  --max-dark: #CC9100;
+  --line: #F0E4D6;
+  --danger: #E5484D;
+  --radius-card: 20px;
+  --radius-btn: 16px;
+  --tabbar-h: 68px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, input { font: inherit; color: inherit; }
+
+.app {
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.screens {
+  position: relative;
+  padding: 16px 16px calc(var(--tabbar-h) + 24px);
+}
+@supports (overflow: clip) {
+  .screens { overflow-x: clip; }
+}
+
+/* ---------- 탭 전환 (transform·opacity 만, 이동 16px = 화면 좌우 여백) ---------- */
+.screen[data-transition="enter"] { animation: tab-enter 260ms ease both; }
+.screen[data-transition="leave"] {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  pointer-events: none;
+  animation: tab-leave 260ms ease both;
+}
+.screens[data-dir="1"] .screen[data-transition="enter"] { --from: 16px; }
+.screens[data-dir="-1"] .screen[data-transition="enter"] { --from: -16px; }
+.screens[data-dir="1"] .screen[data-transition="leave"] { --to: -16px; }
+.screens[data-dir="-1"] .screen[data-transition="leave"] { --to: 16px; }
+@keyframes tab-enter {
+  from { opacity: 0; transform: translateX(var(--from, 16px)); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes tab-leave {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateX(var(--to, -16px)); }
+}
+
+.screen-title {
+  margin: 0 0 12px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+/* ---------- 버튼 ---------- */
+.btn {
+  min-height: 48px;
+  min-width: 44px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-btn);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 0 var(--primary-dark);
+}
+.btn-primary:active { box-shadow: 0 1px 0 var(--primary-dark); } /* 그림자는 transition 없이 즉시 */
+.btn-danger-solid { background: var(--danger); box-shadow: 0 4px 0 #B0343A; }
+.btn-danger-solid:active { box-shadow: 0 1px 0 #B0343A; }
+
+.btn-ghost {
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 4px 0 var(--line);
+  border: 2px solid var(--line);
+}
+
+.btn-block { display: block; width: 100%; margin-bottom: 16px; }
+
+.btn-small {
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 15px;
+  background: #fff;
+  border: 2px solid var(--line);
+  box-shadow: 0 3px 0 var(--line);
+}
+.btn-danger { color: var(--danger); }
+
+/* ---------- 오늘 상단 ---------- */
+.today-header { margin-bottom: 16px; }
+.today-date {
+  margin: 4px 0 0;
+  color: var(--text-soft);
+  font-weight: 700;
+  font-size: 15px;
+}
+.progress-text {
+  margin: 0 0 6px;
+  font-weight: 800;
+}
+.progress-bar {
+  height: 12px;
+  border-radius: 999px;
+  background: #F3E6D8;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 300ms ease;
+}
+
+/* ---------- 빈 상태 ---------- */
+.empty-state, .placeholder {
+  background: var(--card);
+  border-radius: var(--radius-card);
+  box-shadow: 0 8px 24px rgba(43, 45, 66, 0.08);
+  padding: 32px 20px;
+  text-align: center;
+}
+.empty-emoji { font-size: 44px; margin: 0 0 8px; }
+.empty-text { margin: 0 0 20px; color: var(--text-soft); font-weight: 600; }
+.placeholder p { margin: 0; color: var(--text-soft); font-weight: 700; }
+.placeholder .empty-emoji { margin-bottom: 8px; }
+

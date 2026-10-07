@@ -1,70 +1,10 @@
-// M1 통과 기준 자동 시험 (검토봇 C)
-// R1(v2): window.confirm → 화면 안 확인창(confirm-sheet) 으로 바뀌어 수정함 (2026-10-07).
-//   수정은 "3. 수정 즉시 반영…" 시험의 삭제 단계 두 곳뿐: (1) btn-confirm-delete 클릭 추가,
-//   (2) "카드 남음" 확인 전에 카드가 DOM 에서 빠질 때까지(최대 1초) 대기. 그 외 로직은 그대로.
-// 실행: 레포 루트에서  node projects/routine-tracker/tests/m1.test.mjs
-// 먼저 서버를 켜 두어야 함: cd projects/routine-tracker && python3 -m http.server 8080
-import { chromium } from 'playwright';
+// 루틴 추가·수정·삭제·강도·확인창 시험 (routines.js·screens.js·sheets.js)
+// 실행(레포 루트에서): node projects/routine-tracker/tests/routines.test.mjs   (서버는 run.mjs 가 켜 주거나, 직접: cd projects/routine-tracker && python3 -m http.server 8080)
+import { run, check, sleep, tid, getStore, open, addRoutine, progress, noHScroll, openAddSheet, submitSheet, openConfirm, KEY, SEED2, SEED3 } from './_lib.mjs';
 
-const URL = process.env.RT_URL || 'http://localhost:8080/';
-const KEY = 'routineTracker';
-const results = []; // { name, ok, reason }
-let consoleErrors = [];
-
-function record(name, ok, reason) {
-  results.push({ name, ok, reason });
-  console.log(`${ok ? '✅' : '❌'} ${name}${reason ? ' — ' + reason : ''}`);
-}
-
-async function newPage(browser, time) {
-  const ctx = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    timezoneId: 'Asia/Seoul',
-    locale: 'ko-KR',
-  });
-  const page = await ctx.newPage();
-  page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push('console: ' + m.text()); });
-  page.on('pageerror', (e) => consoleErrors.push('pageerror: ' + e.message));
-  page.on('dialog', (d) => d.accept());
-  await page.clock.setFixedTime(new Date(time));
-  return { ctx, page };
-}
-
-const tid = (id) => `[data-testid="${id}"]`;
-const getStore = (page) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) || 'null'), KEY);
-const progress = async (page) => {
-  const el = page.locator(tid('progress'));
-  return { n: Number(await el.getAttribute('data-done-count')), m: Number(await el.getAttribute('data-total')) };
-};
-const noHScroll = (page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
-
-async function addRoutine(page, { name, mini = '', more = '', max = '' }) {
-  await page.click(tid('tab-manage'));
-  await page.click(tid('btn-add-routine'));
-  await page.fill(tid('input-name'), name);
-  await page.fill(tid('input-mini'), mini);
-  await page.fill(tid('input-more'), more);
-  await page.fill(tid('input-max'), max);
-  await page.click(tid('btn-save'));
-  await page.click(tid('tab-today'));
-}
-
-async function check(name, fn) {
-  try {
-    const r = await fn();
-    if (r === true) record(name, true);
-    else record(name, false, typeof r === 'string' ? r : 'false');
-  } catch (e) {
-    record(name, false, '예외: ' + e.message.split('\n')[0]);
-  }
-}
-
-const browser = await chromium.launch();
-try {
-  // ---------- 기준 1~4, 6: 기본 시각 10:00 ----------
-  const { ctx, page } = await newPage(browser, '2026-10-07T10:00:00+09:00');
-  await page.goto(URL);
-
+await run(async (browser) => {
+  // ---------- (옛 m1) 빈 상태·추가·강도·수정·삭제·새로고침·HTML 안 해석 ----------
+  const { ctx, page } = await open(browser, { acceptDialogs: true });
   await check('1. 빈 상태 안내·첫 루틴 버튼·가로 스크롤 없음·탭 3개·기록 탭 준비 중', async () => {
     const errs = [];
     if (!(await page.locator(tid('empty-state')).isVisible())) errs.push('empty-state 안 보임');
@@ -227,46 +167,6 @@ try {
     return errs.length ? errs.join('; ') : true;
   });
 
-  // ---------- 기본 경우 ----------
-  await check('기본: 긴 이름(45자)·긴 기준이 카드 밖으로 넘치지 않음, 가로 스크롤 없음', async () => {
-    const errs = [];
-    const long = '가나다라마바사아자차카타파하'.repeat(3) + 'ABC'; // 45자
-    const longNoSpace = 'abcdefghij'.repeat(5);
-    await addRoutine(page, { name: long, mini: longNoSpace, more: '보통', max: '최고' });
-    await addRoutine(page, { name: longNoSpace, mini: '1' });
-    if (!(await noHScroll(page))) errs.push('오늘 화면 가로 스크롤 생김');
-    const over = await page.evaluate(() => {
-      const out = [];
-      document.querySelectorAll('[data-testid="routine-card"]').forEach((c) => {
-        const cr = c.getBoundingClientRect();
-        c.querySelectorAll('*').forEach((el) => {
-          const r = el.getBoundingClientRect();
-          if (r.width && (r.right > cr.right + 1 || r.left < cr.left - 1)) out.push((el.className || el.tagName) + ':' + Math.round(r.right) + '>' + Math.round(cr.right));
-        });
-        if (cr.right > window.innerWidth + 1) out.push('card 화면 밖');
-      });
-      return out;
-    });
-    if (over.length) errs.push('넘침: ' + over.slice(0, 5).join(', '));
-    await page.click(tid('tab-manage'));
-    if (!(await noHScroll(page))) errs.push('관리 화면 가로 스크롤 생김');
-    await page.screenshot({ path: 'projects/routine-tracker/tests/m1-long-names.png', fullPage: true });
-    await page.click(tid('tab-today'));
-    await page.screenshot({ path: 'projects/routine-tracker/tests/m1-today.png', fullPage: true });
-    return errs.length ? errs.join('; ') : true;
-  });
-
-  await check('기본: 깨진 저장 데이터 → 배너 + backup, 오류 없이 빈 상태', async () => {
-    const errs = [];
-    await page.evaluate((k) => localStorage.setItem(k, '{broken'), KEY);
-    await page.reload();
-    if (!(await page.locator(tid('banner-error')).isVisible())) errs.push('배너 안 보임');
-    const bk = await page.evaluate((k) => localStorage.getItem(k + '.backup'), KEY);
-    if (bk !== '{broken') errs.push('backup=' + bk);
-    if (!(await page.locator(tid('empty-state')).isVisible())) errs.push('빈 상태 아님');
-    return errs.length ? errs.join('; ') : true;
-  });
-
   await check('기본: 사용자 글자 HTML 로 해석 안 됨', async () => {
     await page.evaluate((k) => localStorage.removeItem(k), KEY);
     await page.reload();
@@ -275,33 +175,111 @@ try {
     const n = await page.locator(`${tid('routine-card')} .card-name b, ${tid('routine-card')} img`).count();
     return n === 0 && t.includes('<b>독서</b>') ? true : `text=${t}, elements=${n}`;
   });
-
   await ctx.close();
 
-  // ---------- 기준 5: 08:30 KST ----------
-  const t5 = await newPage(browser, '2026-10-07T08:30:00+09:00');
-  await check('5. 08:30 KST 에 mini → logs 키 "2026-10-07"', async () => {
-    const p = t5.page;
-    await p.goto(URL);
-    await p.evaluate(([k]) => localStorage.setItem(k, JSON.stringify({
-      version: 1, routines: [{ id: 'r_test1', name: '운동', mini: '5개', more: '', max: '', createdAt: '2026-10-07', order: 0 }], logs: {}, celebratedOn: null,
-    })), [KEY]);
-    await p.reload();
-    await p.locator('[data-routine-id="r_test1"] [data-level="mini"]').click();
-    const s = await getStore(p);
-    const keys = Object.keys(s.logs);
-    const dateText = await p.locator(tid('today-date')).innerText();
-    if (keys.length === 1 && keys[0] === '2026-10-07' && s.logs['2026-10-07'].r_test1 === 'mini' && dateText.includes('10월 7일')) return true;
-    return `logs 키=${JSON.stringify(keys)}, 날짜글자=${dateText}`;
+  // ---------- (옛 v2-m1) C5 제자리 갱신 / C6 확인창 ----------
+  await check('C5 제자리 갱신: 강도 누름·이름 수정·취소 뒤에도 다른 카드 __marker 유지, aria-pressed·data-current·aria-label·이름·순서·진행 막대 일치', async () => {
+    const { ctx, page } = await open(browser, { seed: SEED3 });
+    const errs = [];
+    await page.evaluate(() => { document.querySelectorAll('#card-list > [data-routine-id]').forEach((c) => { c.__marker = c.getAttribute('data-routine-id'); }); });
+    const verify = async (label) => {
+      const s = await page.evaluate(() => {
+        const cards = [...document.querySelectorAll('#card-list > [data-routine-id]')];
+        const st = JSON.parse(localStorage.getItem('routineTracker'));
+        const log = st.logs['2026-10-07'] || {};
+        const routines = st.routines.slice().sort((a, b) => a.order - b.order);
+        const out = { order: cards.map((c) => c.getAttribute('data-routine-id')), want: routines.map((r) => r.id), markers: cards.map((c) => c.__marker), bad: [] };
+        cards.forEach((c) => {
+          const id = c.getAttribute('data-routine-id'); const r = routines.find((x) => x.id === id); const lv = log[id] || null;
+          if ((c.getAttribute('data-current') || null) !== lv) out.bad.push(id + ' data-current');
+          if (c.getAttribute('data-done') !== String(!!lv)) out.bad.push(id + ' data-done');
+          if (c.querySelector('.card-name').textContent !== r.name) out.bad.push(id + ' 이름');
+          ['mini', 'more', 'max'].forEach((l) => {
+            const b = c.querySelector('[data-level="' + l + '"]');
+            if (b.getAttribute('aria-pressed') !== String(lv === l)) out.bad.push(id + ' aria-pressed ' + l);
+            if (!b.getAttribute('aria-label').startsWith(r.name + ' ' + l)) out.bad.push(id + ' aria-label ' + l + '=' + b.getAttribute('aria-label'));
+            if (c.querySelector('[data-level="' + l + '"] + .level-crit').textContent !== r[l]) out.bad.push(id + ' 기준 ' + l);
+          });
+        });
+        const done = Object.keys(log).filter((id) => routines.some((r) => r.id === id)).length;
+        const prog = document.querySelector('[data-testid="progress"]');
+        if (prog.getAttribute('data-done-count') !== String(done)) out.bad.push('progress 개수');
+        const tf = document.getElementById('progress-fill').style.transform;
+        const pct = Math.round((done / routines.length) * 100) / 100;
+        if (tf !== 'scaleX(' + pct + ')') out.bad.push('막대 ' + tf + ' != scaleX(' + pct + ')');
+        return out;
+      });
+      if (s.order.join() !== s.want.join()) errs.push(label + ' 순서 ' + s.order + ' != ' + s.want);
+      if (s.markers.join() !== s.order.join()) errs.push(label + ' __marker 사라짐 ' + JSON.stringify(s.markers));
+      if (s.bad.length) errs.push(label + ' 불일치: ' + s.bad.slice(0, 4).join(', '));
+    };
+    await page.click('[data-routine-id="r_a"] [data-level="mini"]'); await verify('A mini');
+    await page.click('[data-routine-id="r_b"] [data-level="max"]'); await verify('B max');
+    await page.click('[data-routine-id="r_a"] [data-level="max"]'); await verify('A 변경');
+    await page.click('[data-routine-id="r_a"] [data-level="max"]'); await verify('A 취소');
+    // 이름·기준 수정 (관리 탭 → 시트 → 오늘)
+    await page.click(tid('tab-manage'));
+    await page.locator(`${tid('manage-item')}[data-routine-id="r_b"] ${tid('btn-edit')}`).click();
+    await page.fill(tid('input-name'), '책 읽기');
+    await page.fill(tid('input-more'), '20쪽');
+    await page.click(tid('btn-save'));
+    await page.click(tid('tab-today'));
+    await verify('이름 수정');
+    const nm = await page.locator('[data-routine-id="r_b"] .card-name').innerText();
+    if (nm.trim() !== '책 읽기') errs.push('수정 이름 ' + nm);
+    await sleep(100);
+    // 포커스·visibilitychange 로 다시 그려도 제자리 갱신
+    await page.evaluate(() => { window.dispatchEvent(new Event('focus')); document.dispatchEvent(new Event('visibilitychange')); });
+    await verify('focus/visibility');
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
   });
-  await t5.ctx.close();
 
-  // ---------- 기준 7 ----------
-  record('7. 콘솔 오류 0개 (console error + pageerror)', consoleErrors.length === 0, consoleErrors.length ? consoleErrors.join(' | ') : '');
-} finally {
-  await browser.close();
-}
+  await check('C6 확인창: role=dialog·aria-modal·문구·취소 포커스 / 취소·Escape·배경 누르기=삭제 안 됨 / window.confirm 안 씀', async () => {
+    const { ctx, page } = await open(browser, { seed: SEED2 });
+    const errs = [];
+    let dialogs = 0;
+    page.on('dialog', (d) => { dialogs++; d.dismiss(); });
+    await openConfirm(page, 'r_a');
+    const sheet = page.locator(tid('confirm-sheet'));
+    if (!(await sheet.isVisible())) errs.push('확인창 안 보임');
+    if ((await sheet.getAttribute('role')) !== 'dialog') errs.push('role');
+    if ((await sheet.getAttribute('aria-modal')) !== 'true') errs.push('aria-modal');
+    const txt = await page.locator(tid('confirm-text')).innerText();
+    if (!txt.includes('"운동" 루틴을 삭제할까요?') || !txt.includes('지난 기록도 함께 지워져요')) errs.push('문구: ' + txt);
+    const focused = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-testid'));
+    if (focused !== 'btn-cancel-delete') errs.push('열릴 때 포커스=' + focused);
+    const stillThere = async (label) => {
+      const st = await getStore(page);
+      const n = await page.locator(`${tid('routine-card')}[data-routine-id="r_a"]`).count();
+      if (!st.routines.some((r) => r.id === 'r_a') || n !== 1) errs.push(label + ' 뒤 삭제됨(store=' + st.routines.length + ', 카드=' + n + ')');
+      if (!(await sheet.isHidden())) errs.push(label + ' 뒤 확인창 안 닫힘');
+    };
+    await page.click(tid('btn-cancel-delete')); await stillThere('취소 버튼');
+    await openConfirm(page, 'r_a'); await page.keyboard.press('Escape'); await stillThere('Escape');
+    await openConfirm(page, 'r_a'); await page.mouse.click(195, 20); await stillThere('배경 누르기');
+    // 취소 뒤 다시 열면 문구가 다른 루틴으로 바뀌어도 이름이 맞음
+    await openConfirm(page, 'r_b');
+    const t2 = await page.locator(tid('confirm-text')).innerText();
+    if (!t2.includes('"독서"')) errs.push('두 번째 문구 ' + t2);
+    await page.click(tid('btn-cancel-delete'));
+    if (dialogs) errs.push('window.confirm 대화상자가 ' + dialogs + '번 열림');
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
 
-const failed = results.filter((r) => !r.ok);
-console.log(`\n결과: ${results.length - failed.length}/${results.length} 통과`);
-process.exit(failed.length ? 1 : 0);
+  // ---------- (옛 v2-m2) 1-10 이름 HTML 안 해석 ----------
+  {
+    const { ctx, page } = await open(browser);
+    await openAddSheet(page);
+    await check('1-10 이름 "<b>안녕</b>" 글자 그대로(b 요소 0개·카드·관리 둘 다)', async () => {
+      await submitSheet(page, '<b>안녕</b>', '');
+      const m = await page.evaluate(() => ({ b: document.querySelectorAll('b').length, text: [...document.querySelectorAll('.manage-name, [data-testid="manage-name"]')].map((e) => e.textContent) }));
+      await page.locator(tid('tab-today')).click();
+      await sleep(300);
+      const t = await page.evaluate(() => ({ b: document.querySelectorAll('b').length, names: [...document.querySelectorAll('.card-name')].map((e) => e.textContent) }));
+      return (m.b === 0 && t.b === 0 && t.names.includes('<b>안녕</b>')) || JSON.stringify({ m, t });
+    });
+    await ctx.close();
+  }
+});

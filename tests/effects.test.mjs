@@ -1,92 +1,7 @@
-// routine-tracker v2 · M2(달성 쾌감: 축포 + 이모지) 자동 시험 (검토봇 C)
-// 실행: 레포 루트에서  node projects/routine-tracker/tests/v2-m2.test.mjs
-// 먼저 서버: cd projects/routine-tracker && python3 -m http.server 8080
-// 날짜: timezoneId Asia/Seoul + page.clock.setFixedTime 만 사용(clock.install 안 씀).
-// 개수·좌표는 btn.click() 과 같은 evaluate 안의 첫 표본. 눌림 사이 3.5초 대기. 입자 애니메이션만 정지해서 반경 측정.
-// ℹ 줄은 "기록만"(판정 아님), ✅/❌ 는 판정.
-import { chromium } from 'playwright';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+// 달성 축포·이모지 입자·토스트 시험 (effects.js·effects.css)
+// 실행(레포 루트에서): node projects/routine-tracker/tests/effects.test.mjs   (서버는 run.mjs 가 켜 주거나, 직접: cd projects/routine-tracker && python3 -m http.server 8080)
 import assert from 'node:assert';
-
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const URL = process.env.RT_URL || 'http://localhost:8080/';
-const KEY = 'routineTracker';
-const NOW = '2026-10-07T10:00:00+09:00';
-const results = [];
-const consoleErrors = [];
-const externalRequests = [];
-const hosts = new Set();
-
-function record(name, ok, reason) {
-  results.push({ name, ok, reason });
-  console.log(`${ok ? '✅' : '❌'} ${name}${reason ? ' — ' + reason : ''}`);
-}
-async function check(name, fn) {
-  try {
-    const r = await fn();
-    if (r === true) record(name, true);
-    else record(name, false, typeof r === 'string' ? r : 'false');
-  } catch (e) {
-    record(name, false, '예외: ' + e.message.split('\n')[0]);
-  }
-}
-const info = (s) => console.log('ℹ ' + s);
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const tid = (id) => `[data-testid="${id}"]`;
-const getRaw = (page) => page.evaluate((k) => localStorage.getItem(k), KEY);
-const getStore = async (page) => JSON.parse((await getRaw(page)) || 'null');
-const R = (id, name, order, emoji) => {
-  const o = { id, name, mini: id + '-mini', more: id + '-more', max: id + '-max', createdAt: '2026-10-01', order };
-  if (emoji) o.emoji = emoji;
-  return o;
-};
-const seedOf = (routines) => ({ version: 1, routines, logs: {}, celebratedOn: null });
-const SEED_EMO = seedOf([R('r_a', '운동', 0, '🏃'), R('r_b', '독서', 1, '📚'), R('r_c', '물', 2)]);
-const SEED_2 = seedOf([R('r_a', '운동', 0, '🏃'), R('r_b', '독서', 1, '🏃')]);
-const SEED_NOEMO = seedOf([R('r_a', '운동', 0), R('r_b', '독서', 1)]);
-
-async function open(browser, { seed = null, reduced = false, viewport = { width: 390, height: 844 }, hasTouch = false, noSegmenter = false } = {}) {
-  const ctx = await browser.newContext({
-    viewport, timezoneId: 'Asia/Seoul', locale: 'ko-KR', hasTouch, isMobile: false,
-    reducedMotion: reduced ? 'reduce' : 'no-preference',
-  });
-  await ctx.route('**/*', (route) => {
-    const u = new globalThis.URL(route.request().url());
-    hosts.add(u.hostname || u.protocol);
-    if (u.hostname !== 'localhost' && u.hostname !== '127.0.0.1') { externalRequests.push(u.href); return route.abort(); }
-    return route.continue();
-  });
-  const page = await ctx.newPage();
-  page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push('console: ' + m.text()); });
-  page.on('pageerror', (e) => consoleErrors.push('pageerror: ' + e.message));
-  await page.clock.setFixedTime(new Date(NOW));
-  if (noSegmenter) await page.addInitScript(() => { delete Intl.Segmenter; });
-  if (seed !== null) {
-    const raw = typeof seed === 'string' ? seed : JSON.stringify(seed);
-    await page.addInitScript(([k, v]) => { if (localStorage.getItem(k) === null) localStorage.setItem(k, v); }, [KEY, raw]);
-  }
-  await page.goto(URL);
-  return { ctx, page };
-}
-
-// ---------- 시트 도우미 ----------
-async function openAddSheet(page) {
-  await page.locator(tid('tab-manage')).click();
-  await page.locator(tid('btn-add-routine')).click();
-  await page.locator(tid('sheet')).waitFor({ state: 'visible' });
-}
-async function submitSheet(page, name, emoji) {
-  await page.locator(tid('input-name')).fill(name);
-  await page.locator(tid('input-emoji')).fill(emoji);
-  await page.locator(tid('btn-save')).click();
-  await sleep(120);
-  return page.evaluate(() => ({
-    err: !document.querySelector('[data-testid="error-emoji"]').hidden && getComputedStyle(document.querySelector('[data-testid="error-emoji"]')).display !== 'none',
-    sheet: !document.querySelector('[data-testid="sheet"]').hidden && getComputedStyle(document.querySelector('[data-testid="sheet"]')).display !== 'none',
-  }));
-}
+import { fs, path, HERE, run, check, info, sleep, tid, getStore, open, countNow, pct, R, seedOf, SEED_EMO, SEED_2, SEED_NOEMO } from './_lib.mjs';
 
 // ---------- 효과 표본 (같은 evaluate 안: 클릭 → 첫 표본 → 400ms → 800ms → 사라질 때까지) ----------
 function pressA(page, idx, level) {
@@ -177,208 +92,11 @@ function pressB(page, idx, level) {
   }, { idx, level });
 }
 
-const countNow = (page) => page.evaluate(() => {
-  const all = [...document.querySelectorAll('.celebrate')];
-  const c = all[all.length - 1];
-  if (!c) return { present: false };
-  return { present: true, level: c.getAttribute('data-level'), confetti: c.querySelectorAll('.confetti').length, emoji: c.querySelectorAll('.emoji-particle').length, count: c.getAttribute('data-count'), burst: c.getAttribute('data-burst'), rain: c.getAttribute('data-rain') };
-});
-
 const EXPECT = { mini: { confetti: 8, emoji: 3, count: 11, burst: 3, rain: 0 }, more: { confetti: 24, emoji: 8, count: 32, burst: 4, rain: 4 }, max: { confetti: 40, emoji: 16, count: 56, burst: 6, rain: 10 } };
 const WIN = { mini: [800, 1000, 1200], more: [1100, 1400, 1600], max: [1600, 2000, 2200] };
 const LEVELS = ['mini', 'more', 'max'];
-const ACCEPT = ['🏃', '👨‍👩‍👧', '🇰🇷', '❤️', '✍️', '👍🏽'];
-const REJECT = ['ab', '🏃🏃', 'a', '🏃a', '1', '#'];
-const pct = (arr, p) => { const s = [...arr].sort((a, b) => a - b); return s[Math.max(0, Math.ceil(p * s.length) - 1)]; };
 
-const browser = await chromium.launch();
-try {
-  // ================= 0. 첫 단계: 콘솔 오류 0 · 스크립트 순서 · 전역 =================
-  {
-    const { ctx, page } = await open(browser, { seed: SEED_EMO });
-    await sleep(500);
-    await check('0-1 첫 로드 콘솔 오류 0 (스크립트 순서)', async () => consoleErrors.length === 0 || consoleErrors.join(' | '));
-    await check('0-2 스크립트 순서 date→emoji→store→streak→effects→app, css/effects.css 링크', async () => {
-      const o = await page.evaluate(() => ({ js: [...document.querySelectorAll('script[src]')].map((s) => s.getAttribute('src')), css: [...document.querySelectorAll('link[rel=stylesheet]')].map((s) => s.getAttribute('href')) }));
-      const want = ['js/date.js', 'js/emoji.js', 'js/store.js', 'js/streak.js', 'js/effects.js', 'js/app.js'];
-      if (JSON.stringify(o.js) !== JSON.stringify(want)) return '순서: ' + o.js.join(',');
-      return o.css.includes('css/effects.css') || 'effects.css 링크 없음';
-    });
-    await check('0-3 전역 RT.emoji.isSingleEmoji · RT.effects.celebrate · html[data-emoji-engine=segmenter]', async () => {
-      const o = await page.evaluate(() => ({ a: typeof window.RT.emoji.isSingleEmoji, b: typeof window.RT.effects.celebrate, e: document.documentElement.getAttribute('data-emoji-engine'), seg: typeof Intl.Segmenter }));
-      return (o.a === 'function' && o.b === 'function' && o.e === 'segmenter') || JSON.stringify(o);
-    });
-    await ctx.close();
-  }
-
-  // ================= 1. 이모지 입력·표시 (기준 1) =================
-  {
-    const { ctx, page } = await open(browser);
-    await openAddSheet(page);
-    await check('1-1 시트에 input-emoji·error-emoji(기본 숨김)·emoji-pick 버튼 8개', async () => {
-      const o = await page.evaluate(() => ({ input: !!document.querySelector('[data-testid="input-emoji"]'), errHidden: document.querySelector('[data-testid="error-emoji"]').hidden, picks: document.querySelectorAll('[data-testid="emoji-pick"] button[data-emoji]').length, pickType: [...document.querySelectorAll('[data-testid="emoji-pick"] button')].every((b) => b.type === 'button') }));
-      return (o.input && o.errHidden && o.picks === 8 && o.pickType) || JSON.stringify(o);
-    });
-    await check('1-2 추천 버튼 💧 누르면 입력칸에 채워지고 시트 유지(제출 안 됨)', async () => {
-      await page.locator('[data-testid="emoji-pick"] button[data-emoji="💧"]').click();
-      const v = await page.locator(tid('input-emoji')).inputValue();
-      const sheet = await page.locator(tid('sheet')).isVisible();
-      const n = (await getStore(page))?.routines?.length ?? 0;
-      return (v === '💧' && sheet && n === 0) || `v=${v} sheet=${sheet} n=${n}`;
-    });
-    const r = await submitSheet(page, '달리기', '🏃');
-    await check('1-3 "🏃" 저장: 시트 닫힘·localStorage routines[0].emoji=="🏃"·version 1', async () => {
-      const s = await getStore(page);
-      return (!r.sheet && !r.err && s.routines[0].emoji === '🏃' && s.version === 1) || JSON.stringify({ r, s });
-    });
-    const addNoEmoji = await submitSheet(await (async () => { await page.locator(tid('btn-add-routine')).click(); await page.locator(tid('sheet')).waitFor({ state: 'visible' }); return page; })(), '이모지없음', '');
-    await check('1-4 빈 이모지 칸은 이모지 없이 저장됨(키 없음)', async () => {
-      const s = await getStore(page);
-      const rr = s.routines.find((x) => x.name === '이모지없음');
-      return (!addNoEmoji.err && rr && !('emoji' in rr)) || JSON.stringify({ addNoEmoji, rr });
-    });
-    await page.locator(tid('tab-today')).click();
-    await sleep(400);
-    await check('1-5 오늘 카드 routine-emoji=="🏃", .card-name 왼쪽·같은 줄(boundingBox)', async () => {
-      const o = await page.evaluate(() => {
-        const card = document.querySelector('[data-testid="routine-card"]');
-        const e = card.querySelector('[data-testid="routine-emoji"]'), n = card.querySelector('.card-name');
-        const a = e.getBoundingClientRect(), b = n.getBoundingClientRect();
-        return { text: e.textContent, hidden: e.hidden, ex: a.x, ew: a.width, ey: a.y, eh: a.height, nx: b.x, ny: b.y, nh: b.height };
-      });
-      const overlapY = Math.min(o.ey + o.eh, o.ny + o.nh) - Math.max(o.ey, o.ny) > 0;
-      return (o.text === '🏃' && !o.hidden && overlapY && o.ex + o.ew <= o.nx + 0.5) || JSON.stringify(o);
-    });
-    await check('1-6 이모지 없는 루틴 카드의 routine-emoji 는 보이지 않음(hidden/폭 0)', async () => {
-      const o = await page.evaluate(() => {
-        const card = [...document.querySelectorAll('[data-testid="routine-card"]')].find((c) => c.querySelector('.card-name').textContent === '이모지없음');
-        const e = card.querySelector('[data-testid="routine-emoji"]');
-        const r = e.getBoundingClientRect();
-        return { hidden: e.hidden, text: e.textContent, w: r.width, disp: getComputedStyle(e).display };
-      });
-      return ((o.hidden || o.disp === 'none' || o.w === 0) && o.text === '') || JSON.stringify(o);
-    });
-    await page.locator(tid('tab-manage')).click();
-    await sleep(400);
-    await check('1-7 관리 목록 manage-emoji=="🏃" 이고 manage-name 왼쪽·같은 줄', async () => {
-      const o = await page.evaluate(() => {
-        const it = document.querySelector('[data-testid="manage-item"]');
-        const e = it.querySelector('[data-testid="manage-emoji"]');
-        const n = it.querySelector('[data-testid="manage-name"]') || it.querySelector('.manage-name');
-        const a = e.getBoundingClientRect(), b = n.getBoundingClientRect();
-        return { text: e.textContent, ex: a.x, ew: a.width, ey: a.y, eh: a.height, nx: b.x, ny: b.y, nh: b.height };
-      });
-      const overlapY = Math.min(o.ey + o.eh, o.ny + o.nh) - Math.max(o.ey, o.ny) > 0;
-      return (o.text === '🏃' && overlapY && o.ex + o.ew <= o.nx + 0.5) || JSON.stringify(o);
-    });
-    await page.reload();
-    await sleep(400);
-    await check('1-8 새로고침 뒤에도 emoji 유지(localStorage·오늘 카드), version===1', async () => {
-      await page.locator(tid('tab-today')).click();
-      await sleep(400);
-      const s = await getStore(page);
-      const t = await page.locator(tid('routine-emoji')).first().textContent();
-      return (s.version === 1 && s.routines[0].emoji === '🏃' && t === '🏃') || JSON.stringify({ v: s.version, e: s.routines[0].emoji, t });
-    });
-    // 수정에서 이모지 지우기 / 바꾸기
-    await check('1-9 수정 시트에서 기존 이모지가 채워지고, 지우면 키 삭제·바꾸면 반영', async () => {
-      await page.locator(tid('tab-manage')).click();
-      await page.locator(tid('btn-edit')).first().click();
-      await page.locator(tid('sheet')).waitFor({ state: 'visible' });
-      const pre = await page.locator(tid('input-emoji')).inputValue();
-      await page.locator(tid('input-emoji')).fill('');
-      await page.locator(tid('btn-save')).click();
-      await sleep(150);
-      const s1 = await getStore(page);
-      const gone = !('emoji' in s1.routines[0]);
-      await page.locator(tid('btn-edit')).first().click();
-      await page.locator(tid('sheet')).waitFor({ state: 'visible' });
-      await page.locator(tid('input-emoji')).fill('📚');
-      await page.locator(tid('btn-save')).click();
-      await sleep(150);
-      const s2 = await getStore(page);
-      return (pre === '🏃' && gone && s2.routines[0].emoji === '📚' && s2.version === 1) || JSON.stringify({ pre, gone, e: s2.routines[0].emoji });
-    });
-    // XSS
-    await check('1-10 이름 "<b>안녕</b>" 글자 그대로(b 요소 0개·카드·관리 둘 다)', async () => {
-      await page.locator(tid('btn-add-routine')).click();
-      await page.locator(tid('sheet')).waitFor({ state: 'visible' });
-      await submitSheet(page, '<b>안녕</b>', '');
-      const m = await page.evaluate(() => ({ b: document.querySelectorAll('b').length, text: [...document.querySelectorAll('.manage-name, [data-testid="manage-name"]')].map((e) => e.textContent) }));
-      await page.locator(tid('tab-today')).click();
-      await sleep(300);
-      const t = await page.evaluate(() => ({ b: document.querySelectorAll('b').length, names: [...document.querySelectorAll('.card-name')].map((e) => e.textContent) }));
-      return (m.b === 0 && t.b === 0 && t.names.includes('<b>안녕</b>')) || JSON.stringify({ m, t });
-    });
-    await ctx.close();
-  }
-
-  // ================= 2. 이모지 검증: Segmenter 길 + 폴백 길 =================
-  for (const noSeg of [false, true]) {
-    const label = noSeg ? '폴백(regex)' : 'Segmenter';
-    const { ctx, page } = await open(browser, { noSegmenter: noSeg });
-    await check(`2-${noSeg ? 'B' : 'A'}0 ${label} 길: data-emoji-engine=${noSeg ? 'regex' : 'segmenter'}${noSeg ? ' (Intl.Segmenter 삭제 확인)' : ''}`, async () => {
-      const o = await page.evaluate(() => ({ e: document.documentElement.getAttribute('data-emoji-engine'), seg: typeof Intl.Segmenter }));
-      return (o.e === (noSeg ? 'regex' : 'segmenter') && (noSeg ? o.seg === 'undefined' : o.seg === 'function')) || JSON.stringify(o);
-    });
-    await check(`2-${noSeg ? 'B' : 'A'}1 ${label} 길: 함수 직접 호출 허용 6·거부 9`, async () => {
-      const o = await page.evaluate(({ A, Rj }) => ({
-        acc: A.map((s) => window.RT.emoji.isSingleEmoji(s)),
-        rej: Rj.concat(['', '12', '1️⃣', '*', ' ']).map((s) => window.RT.emoji.isSingleEmoji(s)),
-      }), { A: ACCEPT, Rj: REJECT });
-      return (o.acc.every((x) => x === true) && o.rej.every((x) => x === false)) || JSON.stringify(o);
-    });
-    info(`${label} 길 가장자리(허용 가장자리, 판정 아님): ` + JSON.stringify(await page.evaluate(() => Object.fromEntries(['©', '™', '☺', '❤', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🧑‍💻'].map((s) => [s, window.RT.emoji.isSingleEmoji(s)])))));
-    await openAddSheet(page);
-    await check(`2-${noSeg ? 'B' : 'A'}2 ${label} 길 UI: 거부 6개는 error-emoji 보임·시트 유지·저장 안 됨`, async () => {
-      const bad = [];
-      for (const s of REJECT) {
-        const r = await submitSheet(page, 'x' + s.length, s);
-        const n = (await getStore(page))?.routines?.length ?? 0;
-        if (!(r.err && r.sheet && n === 0)) bad.push(`${s}:${JSON.stringify(r)}n=${n}`);
-        // 입력하면 오류 숨김
-        await page.locator(tid('input-emoji')).fill('');
-      }
-      return bad.length === 0 || bad.join(' ; ');
-    });
-    await check(`2-${noSeg ? 'B' : 'A'}3 ${label} 길 UI: 허용 6개 저장됨(시트 닫힘, 문자 그대로 저장)`, async () => {
-      const bad = [];
-      for (let i = 0; i < ACCEPT.length; i++) {
-        if (!(await page.locator(tid('sheet')).isVisible())) { await page.locator(tid('btn-add-routine')).click(); await page.locator(tid('sheet')).waitFor({ state: 'visible' }); }
-        const r = await submitSheet(page, 'ok' + i, ACCEPT[i]);
-        const s = await getStore(page);
-        const rr = s.routines.find((x) => x.name === 'ok' + i);
-        if (!(!r.err && !r.sheet && rr && rr.emoji === ACCEPT[i] && s.version === 1)) bad.push(`${ACCEPT[i]}:${JSON.stringify(r)} saved=${rr && rr.emoji}`);
-      }
-      return bad.length === 0 || bad.join(' ; ');
-    });
-    await check(`2-${noSeg ? 'B' : 'A'}4 ${label} 길: 이모지 앞뒤 공백은 trim 되어 저장`, async () => {
-      await page.locator(tid('btn-add-routine')).click();
-      await page.locator(tid('sheet')).waitFor({ state: 'visible' });
-      const r = await submitSheet(page, 'trim', '  🏃  ');
-      const rr = (await getStore(page)).routines.find((x) => x.name === 'trim');
-      return (!r.err && rr && rr.emoji === '🏃') || JSON.stringify({ r, rr });
-    });
-    await ctx.close();
-  }
-
-  // ================= 3. 시트 접근성·가로 넘침 (390x844, 360x640) =================
-  for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 640 }]) {
-    const { ctx, page } = await open(browser, { viewport: vp, seed: SEED_EMO });
-    await openAddSheet(page);
-    await check(`3 ${vp.width}x${vp.height} 시트: btn-save 에 닿음(trial click)·scrollWidth<=innerWidth·이름/이모지 입력칸 같은 줄·폭 안`, async () => {
-      await page.locator(tid('btn-save')).click({ trial: true });
-      const o = await page.evaluate(() => {
-        const a = document.querySelector('[data-testid="input-name"]').getBoundingClientRect();
-        const b = document.querySelector('[data-testid="input-emoji"]').getBoundingClientRect();
-        return { sw: document.documentElement.scrollWidth, iw: window.innerWidth, ay: a.y, ah: a.height, by: b.y, bh: b.height, bRight: b.right, aRight: a.right };
-      });
-      const sameRow = Math.min(o.ay + o.ah, o.by + o.bh) - Math.max(o.ay, o.by) > 0;
-      return (o.sw <= o.iw && sameRow && o.bRight <= o.iw) || JSON.stringify(o);
-    });
-    await ctx.close();
-  }
-
+await run(async (browser) => {
   // ================= 4. 효과 개수(마우스 evaluate-click, 한 번에 하나, 3.5초 간격) =================
   const A = {};
   {
@@ -543,15 +261,6 @@ try {
     // 360 오른쪽 끝 버튼 max
     await ctx.close();
   }
-  {
-    const { ctx, page } = await open(browser, { seed: SEED_2, viewport: { width: 360, height: 640 } });
-    await page.locator('[data-testid="routine-card"]:nth-child(1) .level-btn[data-level="max"]').click();
-    const sws = [];
-    for (const t of [30, 300, 700, 1300, 2000]) { await sleep(t - (sws.length ? [30, 300, 700, 1300, 2000][sws.length - 1] : 0)); sws.push(await page.evaluate(() => document.documentElement.scrollWidth)); }
-    await check(`11-4 360x640 에서 max(오른쪽 끝 버튼) 효과 중 scrollWidth ≤ innerWidth(360): ${sws.join('/')}`, async () => sws.every((x) => x <= 360) || sws.join('/'));
-    await sleep(3000);
-    await ctx.close();
-  }
 
   // ================= 12. 움직임 줄이기 =================
   {
@@ -607,48 +316,8 @@ try {
     });
     info('모든 keyframes 속성: ' + JSON.stringify(sheet.kf));
     await check('13-2 스타일시트에 will-change 없음 · transition:all 없음 · transition 에 box-shadow/width/height/top/left 없음', async () => (sheet.willChange.length === 0 && sheet.transitionAll.length === 0 && sheet.badTransition.length === 0 && sheet.unreadable === 0) || JSON.stringify(sheet));
-    const src = ['js/effects.js', 'js/app.js', 'js/emoji.js'].map((f) => fs.readFileSync(path.join(HERE, '..', f), 'utf8')).join('\n');
+    const src = ['js/date.js', 'js/emoji.js', 'js/store.js', 'js/routines.js', 'js/streak.js', 'js/effects.js', 'js/character.js', 'js/screens.js', 'js/sheets.js', 'js/app.js'].map((f) => fs.readFileSync(path.join(HERE, '..', f), 'utf8')).join('\n');
     await check('13-3 JS 소스에 willChange/will-change 없음', async () => !/will-?change/i.test(src) || 'will-change 문자열 발견');
-    await ctx.close();
-  }
-
-  // ================= 14. 옛 기록 보존 (OLD 시드) =================
-  {
-    const rawSeed = fs.readFileSync(path.join(HERE, 'fixtures', 'old-seed.json'), 'utf8').trim();
-    const seedObj = JSON.parse(rawSeed);
-    const { ctx, page } = await open(browser, { seed: rawSeed });
-    await sleep(600);
-    const after = await getRaw(page);
-    await check('14-1 OLD 시드 열기만: localStorage 문자열 시드와 완전 동일', async () => after === rawSeed || `다름 (시드 ${rawSeed.length}자, 현재 ${after && after.length}자)`);
-    await check('14-2 backup 키 없음 · banner-error 안 보임 · 카드 3개', async () => {
-      const o = await page.evaluate(() => ({ b: localStorage.getItem('routineTracker.backup'), banner: !document.querySelector('[data-testid="banner-error"]').hidden, cards: document.querySelectorAll('[data-testid="routine-card"]').length, keys: Object.keys(localStorage) }));
-      return (o.b === null && !o.banner && o.cards === 3) || JSON.stringify(o);
-    });
-    // 이모지 추가 + 강도 누름
-    await page.locator(tid('tab-manage')).click();
-    await page.locator(tid('btn-edit')).first().click();
-    await page.locator(tid('sheet')).waitFor({ state: 'visible' });
-    await page.locator(tid('input-emoji')).fill('🏃');
-    await page.locator(tid('btn-save')).click();
-    await sleep(200);
-    await page.locator(tid('tab-today')).click();
-    await sleep(400);
-    await page.locator('[data-testid="routine-card"]:nth-child(1) .level-btn[data-level="mini"]').click();
-    const burst = await countNow(page);
-    await sleep(500);
-    const s = await getStore(page);
-    await check('14-3 이모지 추가+mini 누른 뒤: emoji·오늘 로그 두 곳만 시드와 다름, 나머지(루틴 필드·20일 logs·celebratedOn "2026-10-06") 깊은 비교 동일, version 1, backup 없음', async () => {
-      const exp = JSON.parse(rawSeed);
-      exp.routines[0].emoji = '🏃';
-      exp.logs['2026-10-07'] = { r_old_a: 'mini' };
-      try { assert.deepStrictEqual(s, exp); } catch (e) { return '깊은 비교 실패: ' + JSON.stringify(s).slice(0, 300); }
-      const backup = await page.evaluate(() => localStorage.getItem('routineTracker.backup'));
-      return (s.version === 1 && s.celebratedOn === '2026-10-06' && backup === null && Object.keys(s.logs).length === 21) || 'version/celebratedOn/backup/logs 수 이상';
-    });
-    await check('14-4 옛 루틴에 이모지 추가 후 mini 누르면 효과(8/3)', async () => (burst.present && burst.confetti === 8 && burst.emoji === 3) || JSON.stringify(burst));
-    await sleep(3000);
-    // 나머지 루틴 다른 키 순서·값 유지(아이디 기준)
-    await check('14-5 시드의 나머지 두 루틴 객체(키 순서까지) 문자열 동일', async () => JSON.stringify(s.routines.slice(1)) === JSON.stringify(seedObj.routines.slice(1)) || '다름');
     await ctx.close();
   }
 
@@ -695,18 +364,4 @@ try {
       await ctx.close();
     }
   }
-
-  // ================= 99. 전체 콘솔 오류·외부 요청 =================
-  await check('99-1 전 시험 동안 콘솔 오류·pageerror 0', async () => consoleErrors.length === 0 || consoleErrors.slice(0, 5).join(' | '));
-  await check('99-2 모든 요청이 localhost 뿐(외부 0)', async () => externalRequests.length === 0 || externalRequests.join(', '));
-  info('요청 호스트: ' + [...hosts].join(','));
-} finally {
-  await browser.close();
-}
-
-const failed = results.filter((r) => !r.ok);
-console.log(`\n${results.length - failed.length}/${results.length} 통과`);
-if (failed.length) {
-  console.log('실패:\n' + failed.map((f) => `  ❌ ${f.name} — ${f.reason}`).join('\n'));
-  process.exit(1);
-}
+});

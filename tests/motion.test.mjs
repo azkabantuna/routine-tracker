@@ -1,88 +1,8 @@
-// routine-tracker v2 · M1(부드러운 움직임) R2 자동 시험 (검토봇 C)
-// 실행: 레포 루트에서  node projects/routine-tracker/tests/v2-m1-r2.test.mjs
-// 먼저 서버: cd projects/routine-tracker && python3 -m http.server 8080
-// 범위(R2): 탭 전환, 움직임 줄이기 탭 50ms, 누름 수치(판정=계획 문구, 목표는 기록), CPU 4배 부드러움,
-//           스타일시트 검사, 360x640 회귀, 옛 데이터 보존, 콘솔·외부 요청. (R1 항목은 v2-m1.test.mjs 가 다시 시험)
-// 날짜: timezoneId Asia/Seoul + page.clock.setFixedTime 만 사용(clock.install 안 씀).
-import { chromium } from 'playwright';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+// 움직임 시험: 누름감·튕김, 탭 전환, 카드 등장·팝·퇴장, 스타일시트 움직임 검사, 움직임 줄이기 (effects 의 축포는 effects.test.mjs)
+// 실행(레포 루트에서): node projects/routine-tracker/tests/motion.test.mjs   (서버는 run.mjs 가 켜 주거나, 직접: cd projects/routine-tracker && python3 -m http.server 8080)
+import { consoleErrors, fs, path, HERE, run, check, note, sleep, tid, getStore, open, openConfirm, scaleOf, pct, seedN, fixtureRaw, SEED2, SEED3 } from './_lib.mjs';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const URL = process.env.RT_URL || 'http://localhost:8080/';
-const KEY = 'routineTracker';
-const NOW = '2026-10-07T10:00:00+09:00';
-const results = [];
-const consoleErrors = [];
-const externalRequests = [];
-
-function record(name, ok, reason) {
-  results.push({ name, ok, reason });
-  console.log(`${ok ? '✅' : '❌'} ${name}${reason ? ' — ' + reason : ''}`);
-}
-async function check(name, fn) {
-  try {
-    const r = await fn();
-    if (r === true) record(name, true);
-    else record(name, false, typeof r === 'string' ? r : 'false');
-  } catch (e) {
-    record(name, false, '예외: ' + e.message.split('\n')[0]);
-  }
-}
-const note = (s) => console.log('   · ' + s);
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const tid = (id) => `[data-testid="${id}"]`;
-const getRaw = (page) => page.evaluate((k) => localStorage.getItem(k), KEY);
-
-const R = (id, name, order) => ({ id, name, mini: id + '-mini', more: id + '-more', max: id + '-max', createdAt: '2026-10-01', order });
-const seedN = (n) => ({ version: 1, routines: Array.from({ length: n }, (_, i) => R('r_' + i, '루틴' + (i + 1), i)), logs: {}, celebratedOn: null });
-const SEED3 = seedN(3);
-
-async function open(browser, { seed = null, reduced = false, viewport = { width: 390, height: 844 }, observer = false } = {}) {
-  const ctx = await browser.newContext({
-    viewport, timezoneId: 'Asia/Seoul', locale: 'ko-KR',
-    reducedMotion: reduced ? 'reduce' : 'no-preference',
-  });
-  await ctx.route('**/*', (route) => {
-    const u = new globalThis.URL(route.request().url());
-    if (u.hostname !== 'localhost' && u.hostname !== '127.0.0.1') { externalRequests.push(u.href); return route.abort(); }
-    return route.continue();
-  });
-  const page = await ctx.newPage();
-  page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push('console: ' + m.text()); });
-  page.on('pageerror', (e) => consoleErrors.push('pageerror: ' + e.message));
-  await page.clock.setFixedTime(new Date(NOW));
-  if (observer) {
-    // 문서 전체 관찰: data-transition·hidden·data-bounce·data-switching·data-dir 변화를 시각과 함께 기록
-    await page.addInitScript(() => {
-      window.__mo = [];
-      window.__t0 = performance.now();
-      new MutationObserver((ms) => {
-        for (const m of ms) {
-          const el = m.target;
-          window.__mo.push({
-            t: performance.now(), attr: m.attributeName, id: el.id || el.className || el.tagName,
-            val: el.getAttribute(m.attributeName),
-            hiddenToday: document.getElementById('screen-today')?.hidden,
-            hiddenLog: document.getElementById('screen-log')?.hidden,
-            hiddenManage: document.getElementById('screen-manage')?.hidden,
-          });
-        }
-      }).observe(document, { subtree: true, attributes: true, attributeFilter: ['data-transition', 'hidden', 'data-bounce', 'data-switching', 'data-dir'] });
-    });
-  }
-  if (seed !== null) {
-    const raw = typeof seed === 'string' ? seed : JSON.stringify(seed);
-    await page.addInitScript(([k, v]) => { if (localStorage.getItem(k) === null) localStorage.setItem(k, v); }, [KEY, raw]);
-  }
-  await page.goto(URL);
-  await sleep(300);
-  return { ctx, page };
-}
-
-const scaleOf = (t) => { if (!t || t === 'none') return 1; const m = t.match(/matrix\(([^)]+)\)/); return m ? parseFloat(m[1].split(',')[0]) : NaN; };
-const pct = (arr, p) => { const a = [...arr].sort((x, y) => x - y); return a[Math.min(a.length - 1, Math.floor(a.length * p))]; };
+const SEED3N = seedN(3);
 const SCREENS = ['today', 'log', 'manage'];
 const state = (page) => page.evaluate(() => ({
   visible: [...document.querySelectorAll('.screen')].filter((s) => !s.hidden).map((s) => s.id),
@@ -101,13 +21,260 @@ const clickSeq = (page, seq) => page.evaluate((seq) => new Promise((res) => {
   setTimeout(() => res(times), Math.max(...seq.map((s) => s[1])) + 5);
 }), seq);
 
-const browser = await chromium.launch();
-try {
+await run(async (browser) => {
+  // ================= (옛 v2-m1) 누름감·카드 등장/팝/퇴장·움직임 줄이기·스타일시트 =================
+  async function pressFeel(page, sel, label, { reduced }) {
+    const errs = [];
+    const loc = page.locator(sel).first();
+    await loc.scrollIntoViewIfNeeded();
+    const box = await loc.boundingBox();
+    const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+    const info = () => page.evaluate((s) => {
+      const el = document.querySelector(s); const cs = getComputedStyle(el);
+      return { transform: cs.transform, ease: cs.transitionTimingFunction, prop: cs.transitionProperty };
+    }, sel);
+    await page.mouse.move(cx, cy);
+    await sleep(350);
+    const before = await info();
+    if (before.transform !== 'none') errs.push(`${label} 누르기 전 transform=${before.transform}`);
+    await page.mouse.down();
+    await sleep(150);
+    const down = await info();
+    const sc = scaleOf(down.transform);
+    if (!(sc <= 0.96)) errs.push(`${label} 누른 150ms 뒤 scale=${sc} (${down.transform})`);
+    await page.mouse.up();
+    if (!reduced) {
+      const after = await info();
+      const okEase = /cubic-bezier\(0?\.34, 1\.56, 0?\.64, 1\)/.test(after.ease);
+      if (!okEase) errs.push(`${label} 해제 후 이징=${after.ease}`);
+      if (/all|box-shadow|width|height|top|left/.test(after.prop.replace(/\btransform\b/g, ''))) errs.push(`${label} transitionProperty=${after.prop}`);
+    }
+    return errs;
+  }
+  async function overshoot(page, sel, closeFn) {
+    // 최대 3번 시도: 해제 후 100–300ms 구간 rAF 표본에서 scale>1 이 한 번이라도, 마지막은 ≈1
+    let last = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const loc = page.locator(sel).first();
+      const box = await loc.boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await sleep(350);
+      await page.mouse.down();
+      await sleep(150);
+      const p = page.evaluate(([s, ms]) => new Promise((res) => {
+        const el = document.querySelector(s); const out = []; let t0 = null; const start = performance.now();
+        window.addEventListener('pointerup', () => { if (t0 === null) t0 = performance.now(); }, { capture: true, once: true });
+        const sc = (t) => { if (!t || t === 'none') return 1; const m = t.match(/matrix\(([^)]+)\)/); return m ? parseFloat(m[1].split(',')[0]) : NaN; };
+        (function step() {
+          const now = performance.now();
+          out.push({ t: now, s: sc(getComputedStyle(el).transform) });
+          if ((t0 !== null && now - t0 > ms) || now - start > 6000) return res({ t0, out });
+          requestAnimationFrame(step);
+        })();
+      }), [sel, 450]);
+      await sleep(60);
+      await page.mouse.up();
+      const { t0, out } = await p;
+      if (closeFn) await closeFn();
+      if (t0 === null) { last = '해제 시각 못 잡음'; continue; }
+      const win = out.filter((x) => x.t - t0 >= 100 && x.t - t0 <= 300);
+      const max = Math.max(...win.map((x) => x.s));
+      const fin = out[out.length - 1].s;
+      last = `시도${attempt}: 표본 ${win.length}개, 최대 scale=${max.toFixed(4)}, 마지막=${fin.toFixed(4)}`;
+      if (win.length >= 3 && max > 1.0005 && Math.abs(fin - 1) < 0.01) return { ok: true, note: last };
+    }
+    return { ok: false, note: last };
+  }
+  await check('C1 누름감 .level-btn/.btn/.tab: mouse.down 뒤 scale≤0.96, 누르기 전 none, 해제 이징 cubic-bezier(.34,1.56,.64,1), 금지 transition 속성 없음', async () => {
+    const { ctx, page } = await open(browser, { seed: SEED2 });
+    const errs = [];
+    errs.push(...(await pressFeel(page, '.level-btn', '.level-btn', { reduced: false })));
+    await page.click(tid('tab-manage'));
+    errs.push(...(await pressFeel(page, tid('btn-add-routine'), '.btn', { reduced: false })));
+    await page.click(tid('btn-close'));
+    errs.push(...(await pressFeel(page, tid('tab-log'), '.tab', { reduced: false })));
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  await check('C2 해제 오버슈트(튀어오름): 100–300ms 표본에서 scale>1, 마지막≈1 (3회 중 1회) — .level-btn/.btn/.tab', async () => {
+    const { ctx, page } = await open(browser, { seed: SEED2 });
+    const errs = []; const notes = [];
+    let r = await overshoot(page, '.level-btn', null);
+    notes.push('level-btn ' + r.note); if (!r.ok) errs.push('.level-btn 오버슈트 못 봄: ' + r.note);
+    await page.click(tid('tab-manage'));
+    r = await overshoot(page, tid('btn-add-routine'), async () => { await page.click(tid('btn-close')); });
+    notes.push('btn ' + r.note); if (!r.ok) errs.push('.btn 오버슈트 못 봄: ' + r.note);
+    r = await overshoot(page, tid('tab-log'), null);
+    notes.push('tab ' + r.note); if (!r.ok) errs.push('.tab 오버슈트 못 봄: ' + r.note);
+    console.log('   · ' + notes.join(' | '));
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // ================= 2. 카드 등장 =================
+  await check('C3 카드 등장: 첫 로드 카드엔 data-anim 없음 / 추가 후 tab-today 클릭 직후 enter·animationName≠none·opacity<1 → 600ms 뒤 속성 없음·opacity 1', async () => {
+    const { ctx, page } = await open(browser, { seed: SEED2, animLog: true });
+    const errs = [];
+    await sleep(500);
+    const first = await page.evaluate(() => ({ n: document.querySelectorAll('[data-anim]').length, log: window.__animLog.slice() }));
+    if (first.n !== 0 || first.log.length) errs.push('첫 로드 data-anim: ' + JSON.stringify(first));
+    await page.click(tid('tab-manage'));
+    await page.click(tid('btn-add-routine'));
+    await page.fill(tid('input-name'), '새 루틴');
+    await page.click(tid('btn-save'));
+    const hiddenPhase = await page.evaluate(() => document.querySelectorAll('[data-anim]').length);
+    if (hiddenPhase !== 0) errs.push('오늘 화면이 숨겨진 동안 data-anim 개수=' + hiddenPhase);
+    const s = await page.evaluate(() => {
+      document.querySelector('[data-testid="tab-today"]').click();
+      const cards = [...document.querySelectorAll('#card-list > [data-routine-id]')];
+      const c = cards[cards.length - 1]; const cs = getComputedStyle(c);
+      const olds = cards.slice(0, -1).map((x) => x.getAttribute('data-anim'));
+      return { n: cards.length, anim: c.getAttribute('data-anim'), name: cs.animationName, op: parseFloat(cs.opacity), olds };
+    });
+    if (s.n !== 3) errs.push('카드 수 ' + s.n);
+    if (s.anim !== 'enter') errs.push('새 카드 data-anim=' + s.anim);
+    if (s.name === 'none') errs.push('animationName none');
+    if (!(s.op < 1)) errs.push('첫 표본 opacity=' + s.op);
+    if (s.olds.some((a) => a)) errs.push('기존 카드에 data-anim ' + s.olds);
+    await sleep(600);
+    const e = await page.evaluate(() => { const cs = [...document.querySelectorAll('#card-list > [data-routine-id]')]; const c = cs[cs.length - 1]; return { a: c.getAttribute('data-anim'), op: parseFloat(getComputedStyle(c).opacity), any: document.querySelectorAll('[data-anim]').length }; });
+    if (e.a !== null || e.any !== 0) errs.push('600ms 뒤 data-anim 남음 ' + JSON.stringify(e));
+    if (e.op !== 1) errs.push('600ms 뒤 opacity=' + e.op);
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // ================= 3. 팝 =================
+  await check('C4 완료 팝: 설정·변경에서 data-anim="pop" 이 생겼다 600ms 안에 사라짐 / 취소에서는 pop 없음', async () => {
+    const { ctx, page } = await open(browser, { seed: SEED2, animLog: true });
+    const errs = [];
+    const click = (lv) => page.evaluate((l) => {
+      document.querySelector('[data-routine-id="r_a"] [data-level="' + l + '"]').click();
+      return document.querySelector('[data-routine-id="r_a"]').getAttribute('data-anim');
+    }, lv);
+    const gone = async (label) => {
+      await sleep(600);
+      const a = await page.evaluate(() => document.querySelector('[data-routine-id="r_a"]').getAttribute('data-anim'));
+      if (a !== null) errs.push(label + ' 600ms 뒤에도 data-anim=' + a);
+    };
+    let a = await click('mini'); if (a !== 'pop') errs.push('설정(mini) 직후 data-anim=' + a); await gone('설정');
+    a = await click('more'); if (a !== 'pop') errs.push('변경(more) 직후 data-anim=' + a); await gone('변경');
+    await page.evaluate(() => { window.__animLog.length = 0; });
+    a = await click('more'); // 취소
+    if (a !== null) errs.push('취소 직후 data-anim=' + a);
+    await sleep(500);
+    const log = await page.evaluate(() => window.__animLog.slice());
+    if (log.length) errs.push('취소 뒤 data-anim 이 붙은 적 있음 ' + JSON.stringify(log));
+    const st = await getStore(page);
+    if (st.logs['2026-10-07']) errs.push('취소 뒤 로그 남음');
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  await check('C7 퇴장: btn-confirm-delete 직후 50ms 안 카드가 DOM 에 있으면서 data-leaving="true"(+aria-hidden), 800ms 안 count 0, store 반영, 남은 카드 노드 유지', async () => {
+    const { ctx, page } = await open(browser, { seed: SEED3 });
+    const errs = [];
+    await page.evaluate(() => { document.querySelectorAll('#card-list > [data-routine-id]').forEach((c) => { c.__marker = 1; }); });
+    await openConfirm(page, 'r_b');
+    const r = await page.evaluate(() => new Promise((res) => {
+      document.querySelector('[data-testid="btn-confirm-delete"]').click();
+      const t0 = performance.now();
+      setTimeout(() => {
+        const c = document.querySelector('[data-routine-id="r_b"]');
+        const at = { inDom: !!c, leaving: c && c.getAttribute('data-leaving'), aria: c && c.getAttribute('aria-hidden'), ms: Math.round(performance.now() - t0) };
+        (function poll() {
+          if (!document.querySelector('#card-list [data-routine-id="r_b"]')) return res({ at, gone: Math.round(performance.now() - t0) });
+          if (performance.now() - t0 > 2000) return res({ at, gone: null });
+          setTimeout(poll, 10);
+        })();
+      }, 30);
+    }));
+    if (!r.at.inDom || r.at.leaving !== 'true') errs.push(`${r.at.ms}ms 시점 inDom=${r.at.inDom} data-leaving=${r.at.leaving}`);
+    if (r.at.aria !== 'true') errs.push('aria-hidden=' + r.at.aria);
+    if (r.gone === null || r.gone > 800) errs.push('DOM 제거 ' + r.gone + 'ms');
+    console.log(`   · data-leaving ${r.at.ms}ms 시점 확인, DOM 제거 ${r.gone}ms`);
+    const st = await getStore(page);
+    if (st.routines.some((x) => x.id === 'r_b')) errs.push('store 에 남음');
+    const alive = await page.evaluate(() => [...document.querySelectorAll('#card-list > [data-routine-id]')].map((c) => c.getAttribute('data-routine-id') + ':' + c.__marker));
+    if (alive.join() !== 'r_a:1,r_c:1') errs.push('남은 카드/마커 ' + alive);
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // ================= 6. 움직임 줄이기 =================
+  await check('C8 움직임 줄이기(reduce): data-anim 안 붙음(추가·팝), 삭제 100ms 안 DOM 제거, 누름 상태 transform 유지(scale≤0.96)', async () => {
+    const { ctx, page } = await open(browser, { seed: SEED2, reduced: true, animLog: true });
+    const errs = [];
+    const mq = await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
+    if (!mq) errs.push('reduce 가 적용 안 됨');
+    // 팝: 눌러도 data-anim 없음
+    const a = await page.evaluate(() => { document.querySelector('[data-routine-id="r_a"] [data-level="mini"]').click(); return document.querySelector('[data-routine-id="r_a"]').getAttribute('data-anim'); });
+    if (a !== null) errs.push('reduce 팝 data-anim=' + a);
+    // 추가: enter 없음
+    await page.click(tid('tab-manage'));
+    await page.click(tid('btn-add-routine'));
+    await page.fill(tid('input-name'), '새 루틴');
+    await page.click(tid('btn-save'));
+    await page.click(tid('tab-today'));
+    await sleep(150);
+    const log = await page.evaluate(() => ({ log: window.__animLog.slice(), n: document.querySelectorAll('[data-anim]').length }));
+    if (log.log.length || log.n) errs.push('reduce data-anim 붙음 ' + JSON.stringify(log));
+    // 누름 유지
+    errs.push(...(await pressFeel(page, '.level-btn', '.level-btn(reduce)', { reduced: true })));
+    // 삭제 100ms
+    await openConfirm(page, 'r_b');
+    const r = await page.evaluate(() => new Promise((res) => {
+      document.querySelector('[data-testid="btn-confirm-delete"]').click();
+      setTimeout(() => res(!!document.querySelector('#card-list [data-routine-id="r_b"]')), 100);
+    }));
+    if (r) errs.push('reduce 삭제 100ms 뒤에도 카드가 DOM 에 있음');
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // ================= 7. 스타일시트 검사 =================
+  await check('C9 스타일시트: transition 속성은 transform/opacity 뿐(all·box-shadow·width·height·top·left 없음), @keyframes 는 transform/opacity 뿐, 진행 막대 scaleX', async () => {
+    const { ctx, page } = await open(browser, { seed: SEED2 });
+    const r = await page.evaluate(() => {
+      const bad = []; const trans = new Set(); const kf = {}; let fillRule = null;
+      const ALLOWED = new Set(['transform', 'opacity']);
+      function walk(rules, ctxLabel) {
+        for (const rule of rules) {
+          if (rule.type === CSSRule.KEYFRAMES_RULE) {
+            const props = new Set();
+            for (const k of rule.cssRules) for (let i = 0; i < k.style.length; i++) props.add(k.style[i]);
+            kf[rule.name] = [...props];
+            props.forEach((p) => { if (!ALLOWED.has(p) && !/^animation-/.test(p)) bad.push('@keyframes ' + rule.name + ' 에서 ' + p); });
+          } else if (rule.cssRules && rule.type !== CSSRule.STYLE_RULE) walk(rule.cssRules, ctxLabel + ' ' + (rule.conditionText || ''));
+          else if (rule.style) {
+            const tp = rule.style.getPropertyValue('transition-property');
+            if (tp) tp.split(',').map((s) => s.trim()).forEach((p) => { trans.add(p); if (p !== 'none' && !ALLOWED.has(p)) bad.push(rule.selectorText + ' transition-property=' + p); });
+            if (/\ball\b/.test(rule.style.getPropertyValue('transition'))) bad.push(rule.selectorText + ' transition: all');
+            const will = rule.style.getPropertyValue('will-change'); if (will && /width|height|top|left|box-shadow/.test(will)) bad.push('will-change ' + will);
+            if (rule.selectorText && rule.selectorText.split(',').map((s) => s.trim()).includes('.progress-fill')) fillRule = { transform: rule.style.getPropertyValue('transform'), transition: rule.style.getPropertyValue('transition'), width: rule.style.getPropertyValue('width') };
+          }
+        }
+      }
+      for (const sh of document.styleSheets) { try { walk(sh.cssRules, ''); } catch (e) { bad.push('시트 못 읽음 ' + e.message); } }
+      const fillInline = document.getElementById('progress-fill').style.transform;
+      return { bad, trans: [...trans], kf, fillRule, fillInline, fillWidthInline: document.getElementById('progress-fill').style.width };
+    });
+    const errs = [...r.bad];
+    if (!r.fillRule || !/scaleX/.test(r.fillRule.transform)) errs.push('.progress-fill 규칙 transform=' + JSON.stringify(r.fillRule));
+    else if (/width/.test(r.fillRule.transition)) errs.push('.progress-fill transition 에 width');
+    if (!/scaleX/.test(r.fillInline) || r.fillWidthInline) errs.push('막대 인라인 style transform=' + r.fillInline + ' width=' + r.fillWidthInline);
+    console.log('   · transition-property 값: ' + r.trans.join(',') + ' | keyframes: ' + JSON.stringify(r.kf));
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // ================= (옛 v2-m1-r2) 탭 전환·누름 수치·부드러움·스타일시트 =================
   // ================= 1. 탭 전환 =================
   await check('T1 탭 전환 MutationObserver: tab-log 클릭 0–300ms 에 today=leave·log=enter 각 ≥1회, 기록 시점 두 화면 모두 hidden 아님, 새 훅(data-switching·data-dir·aria-hidden·animationName)', async () => {
     const out = [];
     for (const viewport of [{ width: 390, height: 844 }, { width: 360, height: 640 }]) {
-      const { ctx, page } = await open(browser, { seed: SEED3, observer: true, viewport });
+      const { ctx, page } = await open(browser, { settle: 300, seed: SEED3N, observer: true, viewport });
       const errs = [];
       await page.evaluate(() => { window.__mo.length = 0; });
       const r = await page.evaluate(() => new Promise((res) => {
@@ -167,7 +334,7 @@ try {
     ];
     const errs = [];
     for (const order of orders) {
-      const { ctx, page } = await open(browser, { seed: SEED3 });
+      const { ctx, page } = await open(browser, { settle: 300, seed: SEED3N });
       const before = consoleErrors.length;
       await clickSeq(page, order.map((n, i) => [n, i * 150]));
       await sleep(80);
@@ -185,34 +352,8 @@ try {
     return errs.length ? errs.join('; ') : true;
   });
 
-  await check('T3 전환 중 매 rAF documentElement.scrollWidth ≤ innerWidth (390x844·360x640 × 순서 today→log→manage·manage→today·log→today)', async () => {
-    const errs = [];
-    for (const viewport of [{ width: 390, height: 844 }, { width: 360, height: 640 }]) {
-      for (const [start, steps] of [['today', ['log', 'manage']], ['manage', ['today']], ['log', ['today']]]) {
-        const { ctx, page } = await open(browser, { seed: seedN(6), viewport });
-        if (start !== 'today') { await page.click(tid('tab-' + start)); await sleep(500); }
-        const r = await page.evaluate((steps) => new Promise((res) => {
-          let maxOver = -999, frames = 0, stop = false, worstW = 0;
-          (function step() {
-            const over = document.documentElement.scrollWidth - window.innerWidth;
-            if (over > maxOver) maxOver = over;
-            worstW = Math.max(worstW, document.body.scrollWidth - window.innerWidth);
-            frames++;
-            if (!stop) requestAnimationFrame(step);
-          })();
-          steps.forEach((n, i) => setTimeout(() => document.querySelector(`[data-testid="tab-${n}"]`).click(), 50 + i * 500));
-          setTimeout(() => { stop = true; res({ maxOver, frames, worstW }); }, 50 + steps.length * 500 + 300);
-        }), steps);
-        note(`${viewport.width}x${viewport.height} ${start}→${steps.join('→')}: scrollWidth−innerWidth 최대=${r.maxOver}, 프레임 ${r.frames}`);
-        if (r.maxOver > 0) errs.push(`${viewport.width} ${start}→${steps}: 넘침 ${r.maxOver}px`);
-        await ctx.close();
-      }
-    }
-    return errs.length ? errs.join('; ') : true;
-  });
-
   await check('T4 움직임 줄이기 탭 전환: 50ms 에 보이는 화면 1·data-transition/data-bounce/data-switching 0, 관찰기에 해당 속성 변화 기록 없음', async () => {
-    const { ctx, page } = await open(browser, { seed: SEED3, reduced: true, observer: true });
+    const { ctx, page } = await open(browser, { settle: 300, seed: SEED3N, reduced: true, observer: true });
     const errs = [];
     await page.evaluate(() => { window.__mo.length = 0; });
     for (const n of ['log', 'manage', 'today']) {
@@ -237,7 +378,6 @@ try {
     return errs.length ? errs.join('; ') : true;
   });
 
-  // ================= 2. 누름 수치 =================
   async function pressNumbers(page, sel, label, afterClose) {
     const res = { label, p150: null, win: [], max500: null, det136: null, endTransform: null, endBounce: null, ease: null, prop: null, before: null, animName: null, judged: false };
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -300,7 +440,7 @@ try {
 
   const pressRows = [];
   await check('P1 누름감 판정(계획 문구): .level-btn/.btn/.tab 눌림 150ms scale≤0.96·누르기 전 none·해제 이징 cubic-bezier(.34,1.56,.64,1)·금지 속성 없음·해제 후 100–300ms scale>1(3회 중 1회)·450ms 뒤 none/data-bounce 없음', async () => {
-    const { ctx, page } = await open(browser, { seed: SEED3 });
+    const { ctx, page } = await open(browser, { settle: 300, seed: SEED3N });
     const errs = [];
     const rows = [];
     rows.push(await pressNumbers(page, '[data-routine-id="r_1"] .level-btn', '.level-btn', null));
@@ -333,8 +473,6 @@ try {
     }
     return pressRows.length === 3 ? (errs.length ? errs.join('; ') : true) : 'P1 결과 없음';
   });
-
-  // ================= 3. 부드러움 (CPU 4배) =================
   async function baseline(rate) {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await ctx.newPage();
@@ -377,7 +515,7 @@ try {
     note(`빈 페이지 기준선: 1배 중앙 ${b1.median.toFixed(1)}/p95 ${b1.p95.toFixed(1)}/최대 ${b1.max.toFixed(1)}ms (n=${b1.n}), 4배 중앙 ${b4.median.toFixed(1)}/p95 ${b4.p95.toFixed(1)}/최대 ${b4.max.toFixed(1)}ms (n=${b4.n})`);
     const errs = [];
     for (const rate of [1, 4]) {
-      const { ctx, page } = await open(browser, { seed: fs.readFileSync(path.join(HERE, 'fixtures', 'old-seed.json'), 'utf8').trim() });
+      const { ctx, page } = await open(browser, { settle: 300, seed: fixtureRaw });
       const tabs = await smooth(page, '탭 전환 3회', rate, { gap: 500, actions: [{ sel: tid('tab-log') }, { sel: tid('tab-manage') }, { sel: tid('tab-today') }] });
       await sleep(600);
       const lv = (l) => ({ sel: `[data-routine-id="r_old_a"] [data-level="${l}"]` });
@@ -393,9 +531,8 @@ try {
     return errs.length ? errs.join('; ') : true;
   });
 
-  // ================= 4. 스타일시트 =================
   await check('S2 스타일시트: transition-property 는 transform/opacity 뿐(all·box-shadow·width·height·top·left 없음), @keyframes(tab-enter·tab-leave·btn-bounce 포함)는 transform/opacity 뿐, will-change 없음, 진행 막대 scaleX', async () => {
-    const { ctx, page } = await open(browser, { seed: SEED3 });
+    const { ctx, page } = await open(browser, { settle: 300, seed: SEED3N });
     const r = await page.evaluate(() => {
       const bad = []; const kf = {}; const trans = new Set(); let fillRule = null; const will = [];
       const ALLOWED = new Set(['transform', 'opacity']);
@@ -428,96 +565,4 @@ try {
     await ctx.close();
     return errs.length ? errs.join('; ') : true;
   });
-
-  // ================= 5. 360x640 회귀 =================
-  const geom = (page, screenSel) => page.evaluate((sel) => {
-    const iw = window.innerWidth; const out = { sw: document.documentElement.scrollWidth - iw, clip: [], overlap: [], tabbarTop: document.querySelector('.tabbar').getBoundingClientRect().top };
-    const root = document.querySelector(sel);
-    root.querySelectorAll('*').forEach((el) => {
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) return;
-      if (r.left < -0.5 || r.right > iw + 0.5) out.clip.push((el.className || el.tagName) + ' ' + Math.round(r.left) + '~' + Math.round(r.right));
-      if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible') out.clip.push('내용 잘림 ' + (el.className || el.tagName));
-    });
-    const boxes = (q) => [...root.querySelectorAll(q)].map((e) => e.getBoundingClientRect());
-    const inter = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
-    for (const q of ['#card-list > [data-routine-id]', '.level-btn', '[data-testid="manage-item"]']) {
-      const b = boxes(q);
-      for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) if (inter(b[i], b[j])) out.overlap.push(q + ' ' + i + '/' + j);
-    }
-    const lastSel = sel === '#screen-today' ? '#card-list > [data-routine-id]' : '[data-testid="manage-item"]';
-    const items = root.querySelectorAll(lastSel);
-    window.scrollTo(0, document.documentElement.scrollHeight);
-    out.items = items.length;
-    out.gap = items.length ? out.tabbarTop - items[items.length - 1].getBoundingClientRect().bottom : null;
-    return out;
-  }, screenSel);
-
-  await check('R360 회귀 360x640·390x844(오늘·관리, 카드 5·6개): 가로 스크롤·잘림·겹침 없음, 마지막 카드~탭바 ≥16px, 토스트와 .screen-title 비겹침', async () => {
-    const errs = [];
-    for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }]) {
-      for (const n of [5, 6]) {
-        const { ctx, page } = await open(browser, { seed: seedN(n), viewport });
-        for (const [tab, sel] of [['today', '#screen-today'], ['manage', '#screen-manage']]) {
-          if (tab !== 'today') { await page.click(tid('tab-' + tab)); await sleep(500); }
-          const g = await geom(page, sel);
-          const tag = `${viewport.width}x${viewport.height} ${tab} ${n}개`;
-          note(`${tag}: scrollWidth−innerWidth=${g.sw}, 마지막~탭바 ${g.gap == null ? '-' : g.gap.toFixed(1)}px, 잘림 ${g.clip.length}, 겹침 ${g.overlap.length}`);
-          if (g.sw > 0) errs.push(tag + ' 가로 스크롤 ' + g.sw);
-          if (g.clip.length) errs.push(tag + ' 잘림 ' + g.clip.slice(0, 3));
-          if (g.overlap.length) errs.push(tag + ' 겹침 ' + g.overlap.slice(0, 3));
-          if (!(g.gap >= 16)) errs.push(tag + ' 마지막 카드~탭바 ' + g.gap);
-          await page.screenshot({ path: path.join(HERE, `r2-${viewport.width}x${viewport.height}-${tab}-${n}.png`) });
-        }
-        if (n === 6) {
-          await page.click(tid('tab-today')); await sleep(500);
-          await page.evaluate(() => window.scrollTo(0, 0));
-          await page.click('[data-routine-id="r_0"] [data-level="mini"]');
-          await sleep(100);
-          const t = await page.evaluate(() => {
-            const toast = document.querySelector('[data-testid="toast"]'); const tr = toast.getBoundingClientRect();
-            const ti = document.querySelector('#screen-today .screen-title').getBoundingClientRect(); const tb = document.querySelector('.tabbar').getBoundingClientRect();
-            return { hidden: toast.hidden, text: toast.textContent, toast: [tr.top, tr.bottom], title: [ti.top, ti.bottom], tabbarTop: tb.top, z: getComputedStyle(toast).zIndex };
-          });
-          const tag = `${viewport.width}x${viewport.height} 토스트`;
-          note(`${tag}: ${JSON.stringify(t)}`);
-          if (t.hidden) errs.push(tag + ' 안 뜸');
-          else if (t.toast[0] < t.title[1] && t.toast[1] > t.title[0]) errs.push(tag + ' 제목과 겹침');
-          else if (t.toast[1] > t.tabbarTop + 0.5) errs.push(tag + ' 탭바와 겹침');
-        }
-        await ctx.close();
-      }
-    }
-    return errs.length ? errs.join('; ') : true;
-  });
-
-  // ================= 6. 옛 데이터 =================
-  const fixtureRaw = fs.readFileSync(path.join(HERE, 'fixtures', 'old-seed.json'), 'utf8').trim();
-  await check('D1 OLD 시드 불변: 시드로 열기·탭 3개 왕복·reload 뒤에도 localStorage 문자열 그대로, backup 키 없음, banner-error 안 보임, 카드 3개 (390·360)', async () => {
-    const errs = [];
-    for (const viewport of [{ width: 390, height: 844 }, { width: 360, height: 640 }]) {
-      const { ctx, page } = await open(browser, { seed: fixtureRaw, viewport });
-      const chk = async (label) => {
-        if ((await getRaw(page)) !== fixtureRaw) errs.push(`${viewport.width} ${label}: 문자열 달라짐`);
-        if ((await page.evaluate(() => localStorage.getItem('routineTracker.backup'))) !== null) errs.push(label + ' backup');
-        if (await page.locator(tid('banner-error')).isVisible()) errs.push(label + ' banner-error');
-        if ((await page.locator(tid('routine-card')).count()) !== 3) errs.push(label + ' 카드 수');
-      };
-      await chk('로드');
-      for (const n of ['log', 'manage', 'today']) { await page.click(tid('tab-' + n)); await sleep(400); }
-      await chk('탭 왕복');
-      await page.reload(); await sleep(400); await chk('reload');
-      await ctx.close();
-    }
-    return errs.length ? errs.join('; ') : true;
-  });
-
-  record('E1 콘솔 오류 0개 (console error + pageerror, 이 파일의 모든 시험 합산)', consoleErrors.length === 0, consoleErrors.join(' | '));
-  record('E2 외부 요청 0개 (localhost 만)', externalRequests.length === 0, externalRequests.join(' | '));
-} finally {
-  await browser.close();
-}
-
-const failed = results.filter((r) => !r.ok);
-console.log(`\n결과: ${results.length - failed.length}/${results.length} 통과`);
-process.exit(failed.length ? 1 : 0);
+});

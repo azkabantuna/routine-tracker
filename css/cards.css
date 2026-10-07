@@ -1,0 +1,172 @@
+/* ---------- 루틴 카드 ---------- */
+.card-list, .manage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius-card);
+  box-shadow: 0 8px 24px rgba(43, 45, 66, 0.08);
+  padding: 16px;
+  margin-bottom: 14px;
+  border: 3px solid transparent;
+}
+.card[data-anim="enter"] { animation: card-enter 300ms ease-out both; }
+.card[data-anim="pop"] { animation: card-pop 350ms ease; }
+.card[data-leaving="true"] { animation: card-leave 250ms ease-in both; pointer-events: none; }
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes card-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+@keyframes card-leave {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(.96); }
+}
+.card[data-current="mini"] { border-color: var(--mini); background: #F4FBF2; }
+.card[data-current="more"] { border-color: var(--more); background: #F0F7FF; }
+.card[data-current="max"]  { border-color: var(--max);  background: #FFF8E1; }
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.routine-emoji {
+  flex-shrink: 0;
+  font-size: 24px;
+  line-height: 1;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+.card-name {
+  margin: 0;
+  min-width: 0;
+  font-size: 19px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.level-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.level-col { min-width: 0; text-align: center; }
+
+.level-btn {
+  width: 100%;
+  min-height: 48px;
+  border-radius: var(--radius-btn);
+  border: 2px solid var(--line);
+  background: #fff;
+  font-weight: 800;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 4px 0 var(--line);
+}
+.level-btn:active { box-shadow: 0 1px 0 var(--line); }
+
+/* 버튼 누름감: 누르면 빠르게 작아지고(80ms), 떼면 오버슈트로 튀어오름(280ms). transform 만 움직임 */
+.btn, .level-btn, .tab {
+  transform: none;
+  transition: transform 280ms cubic-bezier(.34, 1.56, .64, 1);
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.btn:active, .level-btn:active, .tab:active {
+  transform: translateY(3px) scale(.90);
+  transition-duration: 80ms;
+}
+/* 뗄 때 한 번 통통 (JS 가 data-bounce 를 450ms 동안 붙임) */
+.btn[data-bounce="true"], .level-btn[data-bounce="true"], .tab[data-bounce="true"] {
+  animation: btn-bounce 340ms ease-out both;
+}
+@keyframes btn-bounce {
+  0% { transform: translateY(3px) scale(.90); }
+  40% { transform: scale(1.08); }
+  70% { transform: scale(.985); }
+  100% { transform: none; }
+}
+
+.level-mini { color: var(--mini-dark); }
+.level-more { color: var(--more-dark); }
+.level-max  { color: var(--max-dark); }
+
+.level-btn.level-mini[aria-pressed="true"] { background: var(--mini); border-color: var(--mini); color: #fff; box-shadow: 0 4px 0 var(--mini-dark); }
+.level-btn.level-more[aria-pressed="true"] { background: var(--more); border-color: var(--more); color: #fff; box-shadow: 0 4px 0 var(--more-dark); }
+.level-btn.level-max[aria-pressed="true"]  { background: var(--max);  border-color: var(--max);  color: #fff; box-shadow: 0 4px 0 var(--max-dark); }
+
+.level-crit {
+  margin: 8px 0 0;
+  min-height: 1.35em;
+  font-size: 13px;
+  color: var(--text-soft);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 루틴 관리 ---------- */
+.manage-empty { color: var(--text-soft); font-weight: 600; text-align: center; }
+.manage-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border-radius: var(--radius-card);
+  box-shadow: 0 6px 18px rgba(43, 45, 66, 0.07);
+  padding: 14px 14px 14px 18px;
+  margin-bottom: 12px;
+}
+.manage-info { flex: 1; min-width: 0; }
+.manage-head { display: flex; align-items: center; gap: 8px; }
+.manage-emoji {
+  flex-shrink: 0;
+  font-size: 22px;
+  line-height: 1;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+.manage-name { margin: 0; min-width: 0; font-weight: 800; overflow-wrap: anywhere; }
+.manage-sub { margin: 2px 0 0; font-size: 13px; color: var(--text-soft); overflow-wrap: anywhere; }
+.manage-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ---------- 아래 탭 ---------- */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--tabbar-h);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: #fff;
+  box-shadow: 0 -4px 20px rgba(43, 45, 66, 0.08);
+  border-radius: 20px 20px 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  z-index: 10;
+}
+.tab {
+  border: none;
+  background: none;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.tab-icon { font-size: 20px; line-height: 1; filter: grayscale(1); opacity: 0.6; }
+.tab[aria-selected="true"] { color: var(--primary); }
+.tab[aria-selected="true"] .tab-icon { filter: none; opacity: 1; }
+
