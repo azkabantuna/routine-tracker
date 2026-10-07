@@ -1,6 +1,6 @@
 // 이모지 입력·검증·표시 시험 (emoji.js·sheets.js)
 // 실행(레포 루트에서): node projects/routine-tracker/tests/emoji.test.mjs   (서버는 run.mjs 가 켜 주거나, 직접: cd projects/routine-tracker && python3 -m http.server 8080)
-import { run, check, info, sleep, tid, getStore, open, openAddSheet, submitSheet, SEED_EMO } from './_lib.mjs';
+import { run, check, info, sleep, tid, getStore, open, openAddSheet, submitSheet, openManagePanel, SEED_EMO } from './_lib.mjs';
 
 const ACCEPT = ['🏃', '👨‍👩‍👧', '🇰🇷', '❤️', '✍️', '👍🏽'];
 const REJECT = ['ab', '🏃🏃', 'a', '🏃a', '1', '#'];
@@ -87,6 +87,7 @@ await run(async (browser) => {
     // 수정에서 이모지 지우기 / 바꾸기
     await check('1-9 수정 시트에서 기존 이모지가 채워지고, 지우면 키 삭제·바꾸면 반영', async () => {
       await page.locator(tid('tab-manage')).click();
+      await openManagePanel(page);
       await page.locator(tid('btn-edit')).first().click();
       await page.locator(tid('sheet')).waitFor({ state: 'visible' });
       const pre = await page.locator(tid('input-emoji')).inputValue();
@@ -95,6 +96,7 @@ await run(async (browser) => {
       await sleep(150);
       const s1 = await getStore(page);
       const gone = !('emoji' in s1.routines[0]);
+      await openManagePanel(page);
       await page.locator(tid('btn-edit')).first().click();
       await page.locator(tid('sheet')).waitFor({ state: 'visible' });
       await page.locator(tid('input-emoji')).fill('📚');

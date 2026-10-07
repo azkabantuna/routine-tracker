@@ -17,6 +17,7 @@
   <script src="js/routines.js" defer></script>
   <script src="js/streak.js" defer></script>
   <script src="js/effects.js" defer></script>
+  <script src="vendor/character3d.js" defer></script>
   <script src="js/character.js" defer></script>
   <script src="js/screens.js" defer></script>
   <script src="js/sheets.js" defer></script>
@@ -76,11 +77,18 @@
 
       <!-- 3. 루틴 관리 -->
       <section class="screen" id="screen-manage" data-screen="manage" aria-labelledby="manage-title" hidden>
-        <h1 class="screen-title" id="manage-title">루틴 관리</h1>
+        <h1 class="screen-title manage-title-hidden" id="manage-title">루틴 관리</h1>
         <div class="char-mount" data-testid="char-mount" id="char-mount"></div>
-        <button type="button" class="btn btn-primary btn-block" data-testid="btn-add-routine" id="btn-add-routine">+ 루틴 추가</button>
-        <p class="manage-empty" id="manage-empty" hidden>아직 루틴이 없어요. 위 버튼으로 추가해 보세요.</p>
-        <ul class="manage-list" id="manage-list"></ul>
+        <div class="manage-panel" data-testid="manage-panel" id="manage-panel" data-open="0">
+          <div class="manage-panel-head">
+            <button type="button" class="manage-panel-toggle" data-testid="manage-panel-toggle" id="manage-panel-toggle" aria-expanded="false" aria-controls="manage-panel-body"><span class="manage-grip" aria-hidden="true"></span><span>내 루틴</span></button>
+            <button type="button" class="btn btn-primary" data-testid="btn-add-routine" id="btn-add-routine">+ 루틴 추가</button>
+          </div>
+          <div class="manage-panel-body" id="manage-panel-body">
+            <p class="manage-empty" id="manage-empty" hidden>아직 루틴이 없어요. 위 버튼으로 추가해 보세요.</p>
+            <ul class="manage-list" id="manage-list"></ul>
+          </div>
+        </div>
       </section>
     </main>
 

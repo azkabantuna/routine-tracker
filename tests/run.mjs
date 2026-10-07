@@ -32,6 +32,7 @@ const TABLE = {
   'calendar.css': ['calendar'],
   'character.js': ['character', 'store'],
   'character.css': ['character', 'layout'],
+  'character3d.js': ['character', 'layout'],
   'streak.js': ['store', 'calendar'],
   '_lib.mjs': FEATURES, // 공용 도우미가 바뀌면 전부
   'run.mjs': ['store'], // 실행기만 바뀜: 간단 확인

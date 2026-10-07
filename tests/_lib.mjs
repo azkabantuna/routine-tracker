@@ -124,8 +124,17 @@ export async function open(browser, { seed = null, reduced = false, viewport = {
 }
 
 // ---------- 화면 조작 도우미 ----------
+export async function openManagePanel(page) {
+  const panel = page.locator(tid('manage-panel'));
+  const isOpen = await panel.getAttribute('data-open');
+  if (isOpen !== '1') {
+    await page.locator(tid('manage-panel-toggle')).click();
+    await sleep(100);
+  }
+}
 export async function addRoutine(page, { name, mini = '', more = '', max = '' }) {
   await page.click(tid('tab-manage'));
+  await openManagePanel(page);
   await page.click(tid('btn-add-routine'));
   await page.fill(tid('input-name'), name);
   await page.fill(tid('input-mini'), mini);
@@ -136,6 +145,7 @@ export async function addRoutine(page, { name, mini = '', more = '', max = '' })
 }
 export async function openAddSheet(page) {
   await page.locator(tid('tab-manage')).click();
+  await openManagePanel(page);
   await page.locator(tid('btn-add-routine')).click();
   await page.locator(tid('sheet')).waitFor({ state: 'visible' });
 }
@@ -151,6 +161,7 @@ export async function submitSheet(page, name, emoji) {
 }
 export async function openConfirm(page, id) {
   await page.click(tid('tab-manage'));
+  await openManagePanel(page);
   await page.locator(`${tid('manage-item')}[data-routine-id="${id}"] ${tid('btn-delete')}`).click();
 }
 export const countNow = (page) => page.evaluate(() => {

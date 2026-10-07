@@ -1,6 +1,6 @@
 // 루틴 추가·수정·삭제·강도·확인창 시험 (routines.js·screens.js·sheets.js)
 // 실행(레포 루트에서): node projects/routine-tracker/tests/routines.test.mjs   (서버는 run.mjs 가 켜 주거나, 직접: cd projects/routine-tracker && python3 -m http.server 8080)
-import { run, check, sleep, tid, getStore, open, addRoutine, progress, noHScroll, openAddSheet, submitSheet, openConfirm, KEY, SEED2, SEED3 } from './_lib.mjs';
+import { run, check, sleep, tid, getStore, open, addRoutine, progress, noHScroll, openAddSheet, submitSheet, openConfirm, openManagePanel, KEY, SEED2, SEED3 } from './_lib.mjs';
 
 await run(async (browser) => {
   // ---------- (옛 m1) 빈 상태·추가·강도·수정·삭제·새로고침·HTML 안 해석 ----------
@@ -107,6 +107,7 @@ await run(async (browser) => {
     const errs = [];
     // 수정
     await page.click(tid('tab-manage'));
+    await openManagePanel(page);
     await page.locator(`${tid('manage-item')}[data-routine-id="${idA}"] ${tid('btn-edit')}`).click();
     if ((await page.inputValue(tid('input-name'))) !== '운동') errs.push('수정 시 기존 이름 안 채워짐');
     await page.fill(tid('input-name'), '아침 운동');
@@ -128,6 +129,7 @@ await run(async (browser) => {
     await page.reload();
     // 삭제
     await page.click(tid('tab-manage'));
+    await openManagePanel(page);
     await page.locator(`${tid('manage-item')}[data-routine-id="${idA}"] ${tid('btn-delete')}`).click();
     await page.click(tid('btn-confirm-delete')); // R1(v2): 화면 안 확인창의 삭제 버튼
     await page.click(tid('tab-today'));
@@ -215,6 +217,7 @@ await run(async (browser) => {
     await page.click('[data-routine-id="r_a"] [data-level="max"]'); await verify('A 취소');
     // 이름·기준 수정 (관리 탭 → 시트 → 오늘)
     await page.click(tid('tab-manage'));
+    await openManagePanel(page);
     await page.locator(`${tid('manage-item')}[data-routine-id="r_b"] ${tid('btn-edit')}`).click();
     await page.fill(tid('input-name'), '책 읽기');
     await page.fill(tid('input-more'), '20쪽');

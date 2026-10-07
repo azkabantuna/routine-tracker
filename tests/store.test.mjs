@@ -1,7 +1,7 @@
 // 저장·불러오기·옛 데이터 보존 시험 (store.js·date.js 등)
 // 실행(레포 루트에서): node projects/routine-tracker/tests/store.test.mjs   (서버는 run.mjs 가 켜 주거나, 직접: cd projects/routine-tracker && python3 -m http.server 8080)
 import assert from 'node:assert';
-import { BASE, run, check, info, sleep, tid, getRaw, getStore, open, fixtureRaw, KEY, countNow } from './_lib.mjs';
+import { BASE, run, check, info, sleep, tid, getRaw, getStore, open, fixtureRaw, KEY, countNow, openManagePanel } from './_lib.mjs';
 
 await run(async (browser) => {
   // ---------- (옛 m1) 깨진 저장 데이터 / 08:30 KST 날짜 키 ----------
@@ -96,7 +96,7 @@ await run(async (browser) => {
       if (bk !== raw) errs.push('backup=' + bk);
       if (!(await page.locator(tid('empty-state')).isVisible())) errs.push('빈 상태 아님');
       if ((await page.locator(tid('routine-card')).count()) !== 0) errs.push('카드 있음');
-      await page.click(tid('tab-manage')); await page.click(tid('btn-add-routine'));
+      await page.click(tid('tab-manage')); await openManagePanel(page); await page.click(tid('btn-add-routine'));
       await page.fill(tid('input-name'), '복구'); await page.click(tid('btn-save')); await page.click(tid('tab-today'));
       if ((await page.locator(tid('routine-card')).count()) !== 1) errs.push('복구 뒤 추가 실패');
       await ctx.close();
@@ -138,6 +138,7 @@ await run(async (browser) => {
     });
     // 이모지 추가 + 강도 누름
     await page.locator(tid('tab-manage')).click();
+    await openManagePanel(page);
     await page.locator(tid('btn-edit')).first().click();
     await page.locator(tid('sheet')).waitFor({ state: 'visible' });
     await page.locator(tid('input-emoji')).fill('🏃');

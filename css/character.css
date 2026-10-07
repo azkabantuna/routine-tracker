@@ -64,3 +64,58 @@
   .char-pet, .char-card[data-levelup="1"] .char-pet, .char-card[data-levelup="1"]::after { animation: none; }
   .char-fill { transition: none; }
 }
+
+/* ---------- 관리 화면: 전체 화면 스테이지 + 아래에서 올라오는 패널 ---------- */
+#screen-manage {
+  position: fixed; top: 0; left: 0; right: 0; margin: 0 auto; max-width: 520px;
+  height: calc(100dvh - var(--tabbar-h)); padding: 0; overflow: hidden;
+}
+@supports not (height: 100dvh) { #screen-manage { height: calc(100vh - var(--tabbar-h)); } }
+body:has(#screen-manage:not([hidden])) { overflow-y: hidden; }
+.manage-title-hidden { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.char-mount { position: absolute; inset: 0; background: var(--bg); padding: 16px; }
+.char-mount .char-card { margin: 0; }
+
+/* 3D: 캔버스가 카드 전체를 채우고, 글씨(HUD)는 그 위에 겹친다 */
+.char-card[data-render="3d"] {
+  position: absolute; inset: 0; display: block; margin: 0; padding: 0;
+  border-radius: 0; box-shadow: none; background: var(--bg); overflow: hidden;
+}
+.char-card[data-render="3d"] .char-info {
+  position: absolute; z-index: 2; top: 14px; left: 16px; right: 16px; pointer-events: none;
+  color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .55);
+}
+.char-card[data-render="3d"] .char-level { color: #ffd9a0; }
+.char-card[data-render="3d"] .char-stage-name,
+.char-card[data-render="3d"] .char-next { color: rgba(255, 255, 255, .9); }
+.char-card[data-render="3d"] .char-xp-row strong { color: #fff; }
+.char-card[data-render="3d"] .char-bar { background: rgba(255, 255, 255, .28); }
+.char-card[data-render="3d"][data-levelup="1"]::after { display: none; }
+.char-card[data-render="3d"][data-levelup="1"] .char-info { animation: char-hud-pop .6s ease-out 1; }
+@keyframes char-hud-pop { 0% { transform: scale(1); } 35% { transform: scale(1.06); } 100% { transform: scale(1); } }
+
+/* 패널: transform 으로 올라온다. 닫혀도 머리줄(손잡이·추가 버튼)은 보인다 */
+.manage-panel {
+  position: absolute; z-index: 5; left: 0; right: 0; bottom: 0;
+  height: 68%; display: flex; flex-direction: column;
+  background: var(--bg); border-radius: 22px 22px 0 0;
+  box-shadow: 0 -6px 24px rgba(43, 45, 66, .18);
+  transform: translateY(calc(100% - 64px));
+  transition: transform .3s cubic-bezier(.2, .8, .2, 1);
+}
+.manage-panel[data-open="1"] { transform: translateY(0); }
+.manage-panel-head { display: flex; align-items: center; gap: 10px; flex: 0 0 64px; padding: 8px 12px 8px 8px; }
+.manage-panel-toggle {
+  flex: 1; min-height: 48px; border: none; background: none; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 14px; font-weight: 800; color: var(--text-soft);
+}
+.manage-grip { width: 44px; height: 5px; border-radius: 3px; background: var(--line); }
+.manage-panel-head .btn { min-height: 48px; flex: 0 0 auto; }
+.manage-panel-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 24px; }
+.manage-panel[data-open="0"] .manage-panel-body { pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .manage-panel { transition: none; }
+  .char-card[data-render="3d"][data-levelup="1"] .char-info { animation: none; }
+}

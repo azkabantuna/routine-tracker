@@ -25,10 +25,18 @@ window.RT = window.RT || {};
     screensEl.removeAttribute('data-dir');
   }
 
+  // 3D 캐릭터는 관리 탭이 보일 때만 그린다 (다른 탭·숨겨진 화면에선 멈춤)
+  function syncActive() {
+    if (window.RT3D && typeof window.RT3D.setActive === 'function') {
+      window.RT3D.setActive(currentTab === 'manage' && document.visibilityState !== 'hidden');
+    }
+  }
+
   function showTab(name, instant) {
     if (!instant && name === currentTab) return; // 같은 탭 다시 누름: 아무것도 안 함
     var prev = currentTab;
     currentTab = name;
+    syncActive();
 
     var tabs = document.querySelectorAll('.tab');
     for (var i = 0; i < tabs.length; i++) {
@@ -81,6 +89,21 @@ window.RT = window.RT || {};
     if (tab) showTab(tab.getAttribute('data-tab'));
   });
 
+  // ---------- 관리 패널 열고 닫기 ----------
+  var panel = document.getElementById('manage-panel');
+  var panelToggle = document.getElementById('manage-panel-toggle');
+  if (panel && panelToggle) {
+    var panelBody = document.getElementById('manage-panel-body');
+    // 닫힌 패널 내용은 탭 포커스·터치 불가 (inert), visibility transition 은 쓰지 않음
+    if (panelBody && panel.getAttribute('data-open') !== '1') panelBody.inert = true;
+    panelToggle.addEventListener('click', function () {
+      var open = panel.getAttribute('data-open') !== '1';
+      panel.setAttribute('data-open', open ? '1' : '0');
+      if (panelBody) panelBody.inert = !open;
+      panelToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+
   // ---------- 버튼 튕김 (뗄 때 한 번 통통) ----------
   var BOUNCE_SEL = '.btn, .level-btn, .tab';
   document.addEventListener('pointerdown', function (e) {
@@ -102,6 +125,7 @@ window.RT = window.RT || {};
 
   // 화면이 다시 보일 때: 상단 날짜·n/m·"오늘" 카드만 다시 그린다 (시트·입력 중인 글은 그대로)
   document.addEventListener('visibilitychange', function () {
+    syncActive();
     if (document.visibilityState === 'visible') screens.renderToday();
   });
   window.addEventListener('focus', screens.renderToday);

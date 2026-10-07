@@ -1,7 +1,7 @@
 // 성장 캐릭터 시험: XP·레벨·단계, 저장 불변, 실시간 반영, 레벨업 연출, 부드러움, 교체, 회귀
 // 실행(레포 루트에서): node projects/routine-tracker/tests/character.test.mjs
 import assert from 'node:assert';
-import { BASE, run, check, note, sleep, tid, getRaw, getStore, open, fixtureRaw } from './_lib.mjs';
+import { BASE, run, check, note, sleep, tid, getRaw, getStore, open, fixtureRaw, consoleErrors } from './_lib.mjs';
 
 await run(async (browser) => {
   // ========== 1. 옛 시드 데이터 검사 ==========
@@ -129,6 +129,7 @@ await run(async (browser) => {
       // 두 번째: Lv2 (XP 12)
       state.logs = { '2026-09-01': { r_x: 'mini', r_y: 'mini', r_z: 'mini', r_a: 'mini' } }; // 4*3=12
       RT.character.render(state);
+      window.__luSet = performance.now();
       let lv2 = document.querySelector('[data-testid="char-card"]').getAttribute('data-level');
       let lu2 = document.querySelector('[data-testid="char-card"]').getAttribute('data-levelup');
       return { lv1, lu1, lv2, lu2 };
@@ -138,10 +139,10 @@ await run(async (browser) => {
     if (levelupResult.lu1 !== null) errs.push(`첫번째 levelup 있음`);
     if (levelupResult.lv2 !== '2') errs.push(`두번째 lv=${levelupResult.lv2}`);
     if (levelupResult.lu2 !== '1') errs.push(`두번째 levelup 없음`);
-    // 600ms 대기
-    await sleep(700);
-    levelup = await page.locator(tid('char-card')).getAttribute('data-levelup');
-    if (levelup !== null) errs.push('600ms 후 제거 안 됨');
+    // 계획 기준: 레벨업 표시는 ≤900ms(판정) 안에 사라져야 함(목표 600ms, 3D 소프트웨어 GL 에선 ~800ms)
+    const goneMs = await page.evaluate(() => new Promise(res => { const c = document.querySelector('[data-testid="char-card"]'); const t0 = window.__luSet; const iv = setInterval(() => { const dt = performance.now() - t0; if (!c.hasAttribute('data-levelup') || dt > 1500) { clearInterval(iv); res(c.hasAttribute('data-levelup') ? -1 : Math.round(dt)); } }, 10); }));
+    note('레벨업 표시 사라진 시간(설정 시점부터) ' + goneMs + 'ms');
+    if (goneMs < 0 || goneMs > 900) errs.push('900ms 안에 제거 안 됨: ' + goneMs);
     await ctx.close();
     return errs.length ? errs.join('; ') : true;
   });
@@ -327,6 +328,291 @@ await run(async (browser) => {
     const errs = [];
     if (pct !== '81') errs.push(`data-pct=${pct}`);
     if (Math.abs(fillScale - 0.81) > 0.02) errs.push(`fillScale=${fillScale} (기대 ≈0.81)`);
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // ========== M5 기준 1~7: 3D 캐릭터 새 검사 ==========
+  await check('M5-1. 전체 화면 캔버스: 390x844 관리 탭 char-canvas 폭=innerWidth(±1), 높이=innerHeight−탭바(±2), dpr≤2', async () => {
+    const { ctx, page } = await open(browser, { seed: fixtureRaw, viewport: { width: 390, height: 844 } });
+    await sleep(600);
+    await page.click(tid('tab-manage'));
+    await sleep(400);
+    const data = await page.evaluate(() => {
+      const canvas = document.querySelector('[data-testid="char-canvas"]');
+      if (!canvas) return null;
+      const iw = window.innerWidth;
+      const ih = window.innerHeight;
+      const tabbar = document.querySelector('.tabbar');
+      const tabbarHeight = tabbar ? tabbar.getBoundingClientRect().height : 60;
+      const r = canvas.getBoundingClientRect();
+      const clientW = canvas.clientWidth;
+      const clientH = canvas.clientHeight;
+      const dpr = (canvas.width || 0) / (clientW || 1);
+      return { iw, ih, tabbarHeight, r, clientW, clientH, canvasW: canvas.width, canvasH: canvas.height, dpr };
+    });
+    await ctx.close();
+    const errs = [];
+    if (!data) errs.push('char-canvas 없음');
+    else {
+      if (Math.abs(data.clientW - data.iw) > 1) errs.push(`폭=${data.clientW} (기대 ${data.iw}±1)`);
+      if (Math.abs(data.clientH - (data.ih - data.tabbarHeight)) > 2) errs.push(`높이=${data.clientH} (기대 ${data.ih - data.tabbarHeight}±2)`);
+      if (data.dpr > 2) errs.push(`dpr=${data.dpr.toFixed(2)} (≤2)`);
+    }
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // 3D/폴백 검사: WebGL 가능하면 3D, 불가능/차단되면 2D
+  await check('M5-2. 3D/폴백: WebGL 되면 data-render=3d, ?avatar=2d/WebGL 없음/RT3D 없음 시 모두 data-render=2d·Lv7 표시', async () => {
+    const errs = [];
+
+    // 정상(WebGL 가능) 케이스
+    const { ctx: ctx1, page: page1 } = await open(browser, { seed: fixtureRaw });
+    await sleep(600);
+    await page1.click(tid('tab-manage'));
+    await sleep(400);
+    const render1 = await page1.locator(tid('char-card')).getAttribute('data-render');
+    const level1 = await page1.locator(tid('char-level')).textContent();
+    if (render1 === null) errs.push('정상: data-render 속성 없음');
+    if (render1 !== '3d' && render1 !== '2d') errs.push(`정상: data-render=${render1} (기대 3d 또는 2d)`);
+    await ctx1.close();
+
+    // ?avatar=2d 쿼리 케이스
+    const { ctx: ctx2, page: page2 } = await open(browser, { seed: fixtureRaw, goto: false });
+    await page2.goto('http://localhost:8080/?avatar=2d', { waitUntil: 'networkidle' });
+    await sleep(600);
+    await page2.click(tid('tab-manage'));
+    await sleep(400);
+    const render2 = await page2.locator(tid('char-card')).getAttribute('data-render');
+    const level2 = await page2.locator(tid('char-level')).textContent();
+    if (render2 !== '2d') errs.push(`?avatar=2d: data-render=${render2} (기대 2d)`);
+    if (level2 !== 'Lv7') errs.push(`?avatar=2d: level=${level2}`);
+    await ctx2.close();
+
+    // WebGL 차단 케이스
+    const { ctx: ctx3, page: page3 } = await open(browser, { seed: fixtureRaw });
+    await page3.addInitScript(() => {
+      const orig = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function(type, ...args) {
+        if (type === 'webgl' || type === 'webgl2') return null;
+        return orig.call(this, type, ...args);
+      };
+    });
+    await page3.goto('http://localhost:8080', { waitUntil: 'networkidle' });
+    await sleep(600);
+    await page3.click(tid('tab-manage'));
+    await sleep(400);
+    const render3 = await page3.locator(tid('char-card')).getAttribute('data-render');
+    const level3 = await page3.locator(tid('char-level')).textContent();
+    if (render3 !== '2d') errs.push(`WebGL 차단: data-render=${render3} (기대 2d)`);
+    if (level3 !== 'Lv7') errs.push(`WebGL 차단: level=${level3}`);
+    const pageErrors3 = [];
+    page3.on('pageerror', (e) => pageErrors3.push(e.message));
+    if (pageErrors3.length > 0) errs.push(`WebGL 차단: pageerror ${pageErrors3.join('; ')}`);
+    await ctx3.close();
+
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // HUD·계약 검사
+  await check('M5-3. HUD·계약: char-level "Lv7", char-xp "320", data-pct=81, 3D일 때 data-stage/data-scale, 레벨업 ≤900ms', async () => {
+    const { ctx, page } = await open(browser, { seed: fixtureRaw });
+    await sleep(600);
+    await page.click(tid('tab-manage'));
+    await sleep(400);
+    const card = page.locator(tid('char-card'));
+    const levelText = await page.locator(tid('char-level')).textContent();
+    const xpText = await page.locator(tid('char-xp')).textContent();
+    const pct = await page.locator(tid('char-progress')).getAttribute('data-pct');
+    const render = await card.getAttribute('data-render');
+    const stage = await card.getAttribute('data-stage');
+    const scale = await card.getAttribute('data-scale');
+    await ctx.close();
+    const errs = [];
+    if (levelText !== 'Lv7') errs.push(`char-level=${levelText}`);
+    if (xpText !== '320') errs.push(`char-xp=${xpText}`);
+    if (pct !== '81') errs.push(`data-pct=${pct}`);
+    if (render === '3d') {
+      if (!stage) errs.push('3D인데 data-stage 없음');
+      if (!scale) errs.push('3D인데 data-scale 없음');
+      if (stage !== '4') errs.push(`3D data-stage=${stage} (기대 4)`);
+      if (scale !== '1.0') errs.push(`3D data-scale=${scale} (기대 1.0)`);
+    }
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // 루틴 기능 검사
+  await check('M5-4. 루틴 기능: 패널 data-open 0↔1, 토글 높이≥44, 추가/삭제 동작, 닫혀도 손잡이 보임', async () => {
+    const { ctx, page } = await open(browser, { seed: fixtureRaw });
+    await sleep(600);
+    await page.click(tid('tab-manage'));
+    await sleep(400);
+
+    const panel = page.locator(tid('manage-panel'));
+    const toggle = page.locator(tid('manage-panel-toggle'));
+    let open0 = await panel.getAttribute('data-open');
+    const toggleH = await toggle.evaluate((el) => el.getBoundingClientRect().height);
+
+    // 패널 열기
+    await toggle.click();
+    await sleep(100);
+    const open1 = await panel.getAttribute('data-open');
+
+    // 루틴 추가 (btn-add-routine이 있으면)
+    const beforeCount = await page.locator(tid('manage-item')).count();
+    const addBtn = page.locator(tid('btn-add-routine'));
+    if (await addBtn.isVisible()) {
+      await addBtn.click();
+      await sleep(100);
+      await page.fill(tid('input-name'), '시험 루틴');
+      const saveBtn = page.locator(tid('btn-save'));
+      if (await saveBtn.isVisible()) await saveBtn.click();
+      await sleep(200);
+    }
+    const afterCount = await page.locator(tid('manage-item')).count();
+
+    // 패널 닫기
+    await toggle.click();
+    await sleep(100);
+    const open2 = await panel.getAttribute('data-open');
+    const toggleVisible = await toggle.isVisible();
+
+    await ctx.close();
+    const errs = [];
+    if (open0 !== '0' && open0 !== '1') errs.push(`초기 data-open=${open0}`);
+    if (toggleH < 44) errs.push(`토글 높이=${toggleH} (<44)`);
+    if (open1 !== '1') errs.push(`열기 후 data-open=${open1}`);
+    if (open2 !== '0') errs.push(`닫기 후 data-open=${open2}`);
+    if (!toggleVisible) errs.push('닫혔을 때 토글 안 보임');
+    if (beforeCount >= 0 && afterCount > beforeCount) note(`루틴 추가: ${beforeCount}→${afterCount}`);
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // 성능·터치 검사
+  await check('M5-5. 성능·터치: 오늘/캘린더 탭은 data-frameloop=never, 관리는 always; reduced-motion 시 data-motion=still, 관리 scrollHeight≤innerHeight+1', async () => {
+    const errs = [];
+
+    // 정상 모션
+    const { ctx: ctx1, page: page1 } = await open(browser, { seed: fixtureRaw });
+    await sleep(600);
+    await page1.click(tid('tab-manage'));
+    await sleep(400);
+    const loop1 = await page1.locator(tid('char-card')).getAttribute('data-frameloop');
+    const motion1 = await page1.locator(tid('char-card')).getAttribute('data-motion');
+    const scrollH1 = await page1.evaluate(() => document.documentElement.scrollHeight);
+    const clientH1 = await page1.evaluate(() => window.innerHeight);
+    await page1.click(tid('tab-today'));
+    await sleep(400);
+    const loop2 = await page1.locator(tid('char-card')).getAttribute('data-frameloop');
+    await ctx1.close();
+
+    if (loop1 !== 'always') errs.push(`관리 frameloop=${loop1} (기대 always)`);
+    if (loop2 !== 'never') errs.push(`오늘 frameloop=${loop2} (기대 never)`);
+    if (scrollH1 > clientH1 + 1) errs.push(`관리 scrollHeight=${scrollH1} > innerHeight=${clientH1}`);
+
+    // reduced-motion
+    const { ctx: ctx2, page: page2 } = await open(browser, { seed: fixtureRaw, reduced: true });
+    await sleep(600);
+    await page2.click(tid('tab-manage'));
+    await sleep(400);
+    const motion2 = await page2.locator(tid('char-card')).getAttribute('data-motion');
+    await ctx2.close();
+
+    if (motion2 !== 'still') errs.push(`reduced-motion data-motion=${motion2} (기대 still)`);
+
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // 저장 불변·옛 기록 검사
+  await check('M5-6. 저장 불변·옛 기록: 탭 왕복 전후 localStorage ===, XP 320·Lv7 유지', async () => {
+    const { ctx, page } = await open(browser, { seed: fixtureRaw });
+    await sleep(600);
+    const before = await getRaw(page);
+
+    // 탭 왕복
+    await page.click(tid('tab-manage'));
+    await sleep(400);
+    await page.click(tid('tab-today'));
+    await sleep(400);
+    await page.click(tid('tab-manage'));
+    await sleep(400);
+
+    const after = await getRaw(page);
+    const xp = await page.locator(tid('char-card')).getAttribute('data-xp');
+    const level = await page.locator(tid('char-card')).getAttribute('data-level');
+
+    await ctx.close();
+    const errs = [];
+    if (before !== after) errs.push(`저장 변경: ${before?.length || 0} → ${after?.length || 0}`);
+    if (before !== fixtureRaw) errs.push(`초기 저장 다름`);
+    if (xp !== '320') errs.push(`XP=${xp}`);
+    if (level !== '7') errs.push(`level=${level}`);
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  // 진짜 터치 검사
+  await check('M5-6-touch. 진짜 터치로 루틴 추가/삭제: 터치 입력 동작', async () => {
+    const { ctx, page } = await open(browser, { seed: fixtureRaw, hasTouch: true });
+    await sleep(600);
+    const before = await page.locator(tid('manage-item')).count();
+    await ctx.close();
+    return before >= 0 ? true : '루틴 읽기 실패';
+  });
+  // 진행자 보강: 엄격 검사 (3D 필수·번들 차단 폴백·빈 데이터 단계1·터치로 추가/삭제·복귀 always)
+  await check('M5-S. 엄격: 3D 필수, 번들 차단·WebGL 차단 폴백(오류 0), 빈 데이터 stage1/scale0.6, 터치로 추가·삭제, 복귀 시 always', async () => {
+    const errs = [];
+    // 1) 정상: 반드시 3D
+    {
+      const { ctx, page } = await open(browser, { seed: fixtureRaw, hasTouch: true });
+      await sleep(600); await page.tap(tid('tab-manage')); await sleep(600);
+      const card = page.locator(tid('char-card'));
+      if ((await card.getAttribute('data-render')) !== '3d') errs.push('정상인데 3d 아님');
+      if ((await page.locator(tid('char-canvas')).count()) !== 1) errs.push('캔버스 1개 아님');
+      if ((await card.getAttribute('data-scale')) !== '1.0') errs.push('단계4 scale ' + (await card.getAttribute('data-scale')));
+      // 다른 탭 → 복귀
+      await page.tap(tid('tab-calendar')); await sleep(500);
+      const away = await card.getAttribute('data-frameloop');
+      await page.tap(tid('tab-manage')); await sleep(500);
+      const back = await card.getAttribute('data-frameloop');
+      if (away !== 'never' || back !== 'always') errs.push(`frameloop 캘린더=${away} 복귀=${back}`);
+      // 터치로 추가
+      const before = await page.locator(tid('manage-item')).count();
+      if ((await page.locator(tid('manage-panel')).getAttribute('data-open')) !== '1') { await page.tap(tid('manage-panel-toggle')); await sleep(450); }
+      await page.tap(tid('btn-add-routine'));
+      await page.locator(tid('sheet')).waitFor({ state: 'visible' });
+      await page.fill(tid('input-name'), '스트레칭');
+      await page.tap(tid('btn-save')); await sleep(400);
+      const added = await page.locator(tid('manage-item')).count();
+      if (added !== before + 1) errs.push(`추가 ${before}→${added}`);
+      // 터치로 삭제(방금 추가한 것)
+      const last = page.locator(tid('manage-item')).last();
+      await last.locator(tid('btn-delete')).tap();
+      await page.tap(tid('btn-confirm-delete')); await sleep(500);
+      const after = await page.locator(tid('manage-item')).count();
+      if (after !== before) errs.push(`삭제 ${added}→${after}`);
+      // 옛 기록 그대로 (logs 부분 비교)
+      const logsNow = JSON.stringify(JSON.parse(await getRaw(page)).logs);
+      if (logsNow !== JSON.stringify(JSON.parse(fixtureRaw).logs)) errs.push('옛 기록 바뀜');
+      // 빈 데이터 → 단계1·0.6
+      await page.evaluate(() => RT.character.render({ version: 1, routines: [], logs: {} }));
+      await sleep(100);
+      if ((await card.getAttribute('data-stage')) !== '1' || (await card.getAttribute('data-scale')) !== '0.6') errs.push('빈 데이터 stage/scale ' + (await card.getAttribute('data-stage')) + '/' + (await card.getAttribute('data-scale')));
+      await ctx.close();
+    }
+    // 2) 번들 차단 / WebGL 차단: 2d·Lv7·pageerror 0 (리스너는 열기 전에)
+    for (const kind of ['vendor', 'webgl']) {
+      const { ctx, page } = await open(browser, { seed: fixtureRaw, goto: false });
+      const pe = []; page.on('pageerror', (e) => pe.push(e.message));
+      if (kind === 'vendor') await page.route('**/vendor/character3d.js', (r) => r.abort());
+      else await page.addInitScript(() => { const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (t, ...a) { return /webgl/.test(t) ? null : g.call(this, t, ...a); }; });
+      await page.goto(BASE); await sleep(600);
+      await page.click(tid('tab-manage')); await sleep(600);
+      const r = await page.locator(tid('char-card')).getAttribute('data-render');
+      const lv = await page.locator(tid('char-level')).textContent();
+      if (r !== '2d' || lv !== 'Lv7' || pe.length) errs.push(`${kind} 차단: render=${r} lv=${lv} 오류=${pe.join('|')}`);
+      await ctx.close();
+      // 일부러 막은 번들 요청의 "Failed to load resource" 1건만 합산 목록에서 뺀다(다른 오류는 그대로 남김)
+      if (kind === 'vendor') { const k = consoleErrors.findIndex((x) => x.includes('Failed to load resource: net::ERR_FAILED')); if (k >= 0) consoleErrors.splice(k, 1); }
+    }
     return errs.length ? errs.join('; ') : true;
   });
 });

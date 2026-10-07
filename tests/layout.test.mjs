@@ -1,29 +1,70 @@
 // 가로 스크롤·시트 닿음·토스트 크기·아래 여백·스크립트 순서 시험 (css/*.css·index.html)
 // 실행(레포 루트에서): node projects/routine-tracker/tests/layout.test.mjs   (서버는 run.mjs 가 켜 주거나, 직접: cd projects/routine-tracker && python3 -m http.server 8080)
-import { consoleErrors, run, check, note, sleep, tid, open, addRoutine, noHScroll, openAddSheet, seedN, SEED_EMO, SEED_2 } from './_lib.mjs';
+import { consoleErrors, run, check, note, sleep, tid, open, addRoutine, noHScroll, openAddSheet, openManagePanel, seedN, SEED_EMO, SEED_2 } from './_lib.mjs';
 
-  const geom = (page, screenSel) => page.evaluate((sel) => {
-    const iw = window.innerWidth; const out = { sw: document.documentElement.scrollWidth - iw, clip: [], overlap: [], tabbarTop: document.querySelector('.tabbar').getBoundingClientRect().top };
-    const root = document.querySelector(sel);
-    root.querySelectorAll('*').forEach((el) => {
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) return;
-      if (r.left < -0.5 || r.right > iw + 0.5) out.clip.push((el.className || el.tagName) + ' ' + Math.round(r.left) + '~' + Math.round(r.right));
-      if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible') out.clip.push('내용 잘림 ' + (el.className || el.tagName));
-    });
-    const boxes = (q) => [...root.querySelectorAll(q)].map((e) => e.getBoundingClientRect());
-    const inter = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
-    for (const q of ['#card-list > [data-routine-id]', '.level-btn', '[data-testid="manage-item"]']) {
-      const b = boxes(q);
-      for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) if (inter(b[i], b[j])) out.overlap.push(q + ' ' + i + '/' + j);
+  const geom = (page, screenSel, isManage = false) => page.evaluate(({ sel, isManage }) => {
+    const iw = window.innerWidth; const tabbarTop = document.querySelector('.tabbar').getBoundingClientRect().top;
+    const out = { sw: 0, clip: [], overlap: [], tabbarTop };
+
+    if (isManage) {
+      // 관리 탭: 패널 안만 검사
+      const panel = document.querySelector('[data-testid="manage-panel"]');
+      if (!panel) return out;
+      out.sw = panel.scrollWidth - panel.clientWidth;
+
+      // 패널 내용 잘림 검사 (숨김 제목 제외)
+      panel.querySelectorAll('*').forEach((el) => {
+        if (getComputedStyle(el).display === 'none') return;
+        const classList = el.className;
+        if (classList && classList.includes('manage-title-hidden')) return; // 숨김 제목 제외
+
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return;
+        const panelRect = panel.getBoundingClientRect();
+        if (r.left < panelRect.left - 0.5 || r.right > panelRect.right + 0.5)
+          out.clip.push((className || el.tagName) + ' ' + Math.round(r.left) + '~' + Math.round(r.right));
+        if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible')
+          out.clip.push('내용 잘림 ' + (el.className || el.tagName));
+      });
+
+      // 겹침 검사
+      const boxes = (q) => [...panel.querySelectorAll(q)].map((e) => e.getBoundingClientRect());
+      const inter = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+      for (const q of ['.level-btn', '[data-testid="manage-item"]']) {
+        const b = boxes(q);
+        for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) if (inter(b[i], b[j])) out.overlap.push(q + ' ' + i + '/' + j);
+      }
+
+      // 마지막 manage-item과 탭바의 gap 계산
+      const items = panel.querySelectorAll('[data-testid="manage-item"]');
+      // 실제 스크롤 칸은 패널 본문(.manage-panel-body). 끝까지 내린 뒤 잰다
+      const body = panel.querySelector('.manage-panel-body') || panel;
+      body.scrollTop = body.scrollHeight;
+      out.items = items.length;
+      out.gap = items.length ? tabbarTop - items[items.length - 1].getBoundingClientRect().bottom : null;
+    } else {
+      // 오늘 탭: 기존 로직
+      out.sw = document.documentElement.scrollWidth - iw;
+      const root = document.querySelector(sel);
+      root.querySelectorAll('*').forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return;
+        if (r.left < -0.5 || r.right > iw + 0.5) out.clip.push((el.className || el.tagName) + ' ' + Math.round(r.left) + '~' + Math.round(r.right));
+        if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible') out.clip.push('내용 잘림 ' + (el.className || el.tagName));
+      });
+      const boxes = (q) => [...root.querySelectorAll(q)].map((e) => e.getBoundingClientRect());
+      const inter = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+      for (const q of ['#card-list > [data-routine-id]', '.level-btn', '[data-testid="manage-item"]']) {
+        const b = boxes(q);
+        for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) if (inter(b[i], b[j])) out.overlap.push(q + ' ' + i + '/' + j);
+      }
+      const items = root.querySelectorAll('#card-list > [data-routine-id]');
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      out.items = items.length;
+      out.gap = items.length ? tabbarTop - items[items.length - 1].getBoundingClientRect().bottom : null;
     }
-    const lastSel = sel === '#screen-today' ? '#card-list > [data-routine-id]' : '[data-testid="manage-item"]';
-    const items = root.querySelectorAll(lastSel);
-    window.scrollTo(0, document.documentElement.scrollHeight);
-    out.items = items.length;
-    out.gap = items.length ? out.tabbarTop - items[items.length - 1].getBoundingClientRect().bottom : null;
     return out;
-  }, screenSel);
+  }, { sel: screenSel, isManage });
 
 await run(async (browser) => {
   // ---------- (옛 v2-m2) 0-1·0-2 첫 로드 콘솔 오류 0 · 스크립트 순서 ----------
@@ -31,9 +72,9 @@ await run(async (browser) => {
     const { ctx, page } = await open(browser, { seed: SEED_EMO });
     await sleep(500);
     await check('0-1 첫 로드 콘솔 오류 0 (스크립트 순서)', async () => consoleErrors.length === 0 || consoleErrors.join(' | '));
-    await check('0-2 스크립트 순서 date→emoji→store→streak→effects→app, css/effects.css 링크', async () => {
+    await check('0-2 스크립트 순서 date→emoji→store→streak→effects→character3d→character→app, css/effects.css 링크', async () => {
       const o = await page.evaluate(() => ({ js: [...document.querySelectorAll('script[src]')].map((s) => s.getAttribute('src')), css: [...document.querySelectorAll('link[rel=stylesheet]')].map((s) => s.getAttribute('href')) }));
-      const want = ['js/date.js', 'js/emoji.js', 'js/store.js', 'js/routines.js', 'js/streak.js', 'js/effects.js', 'js/character.js', 'js/screens.js', 'js/sheets.js', 'js/calendar.js', 'js/app.js'];
+      const want = ['js/date.js', 'js/emoji.js', 'js/store.js', 'js/routines.js', 'js/streak.js', 'js/effects.js', 'vendor/character3d.js', 'js/character.js', 'js/screens.js', 'js/sheets.js', 'js/calendar.js', 'js/app.js'];
       if (JSON.stringify(o.js) !== JSON.stringify(want)) return '순서: ' + o.js.join(',');
       return o.css.includes('css/effects.css') || 'effects.css 링크 없음';
     });
@@ -104,8 +145,13 @@ await run(async (browser) => {
       for (const n of [5, 6]) {
         const { ctx, page } = await open(browser, { seed: seedN(n), viewport, settle: 300 });
         for (const [tab, sel] of [['today', '#screen-today'], ['manage', '#screen-manage']]) {
-          if (tab !== 'today') { await page.click(tid('tab-' + tab)); await sleep(500); }
-          const g = await geom(page, sel);
+          if (tab !== 'today') {
+            await page.click(tid('tab-' + tab));
+            await sleep(500);
+            await openManagePanel(page);
+            await sleep(450); // 패널이 올라오는 전환(약 300ms)이 끝난 뒤
+          }
+          const g = await geom(page, sel, tab === 'manage');
           const tag = `${viewport.width}x${viewport.height} ${tab} ${n}개`;
           note(`${tag}: scrollWidth−innerWidth=${g.sw}, 마지막~탭바 ${g.gap == null ? '-' : g.gap.toFixed(1)}px, 잘림 ${g.clip.length}, 겹침 ${g.overlap.length}`);
           if (g.sw > 0) errs.push(tag + ' 가로 스크롤 ' + g.sw);

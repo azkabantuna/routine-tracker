@@ -42,21 +42,41 @@ window.RT = window.RT || {};
   var refs = null;
   var lastLevel = null;
   var upTimer = null;
+  var is3d = false;
 
   function div(cls) { var e = document.createElement('div'); e.className = cls; return e; }
   function tid(el, id) { el.setAttribute('data-testid', id); return el; }
+
+  function use3d() {
+    if (!window.RT3D || typeof window.RT3D.mount !== 'function') return false;
+    return !/[?&]avatar=2d(&|$)/.test(location.search);
+  }
 
   function mount(el) {
     if (!el) return;
     unmount();
     root = el;
     card = tid(div('char-card'), 'char-card');
-    var stage = div('char-stage');
-    var pet = div('char-pet');
-    pet.setAttribute('aria-hidden', 'true');
-    ['char-ear char-ear-l', 'char-ear char-ear-r', 'char-body', 'char-eye char-eye-l', 'char-eye char-eye-r', 'char-shine'].forEach(function (c) { pet.appendChild(div(c)); });
-    stage.appendChild(div('char-shadow'));
-    stage.appendChild(pet);
+    card.setAttribute('data-render', '2d');
+    root.appendChild(card);
+    // 3D 는 카드가 비어 있을 때 붙인다 (번들이 첫 자식을 캔버스 자리로 쓴다)
+    is3d = false;
+    if (use3d()) {
+      try {
+        var red = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        is3d = window.RT3D.mount(card, { stage: 1, reduced: red }) === true;
+      } catch (err) { is3d = false; }
+    }
+    card.setAttribute('data-render', is3d ? '3d' : '2d');
+    if (!is3d) {
+      var stage = div('char-stage');
+      var pet = div('char-pet');
+      pet.setAttribute('aria-hidden', 'true');
+      ['char-ear char-ear-l', 'char-ear char-ear-r', 'char-body', 'char-eye char-eye-l', 'char-eye char-eye-r', 'char-shine'].forEach(function (c) { pet.appendChild(div(c)); });
+      stage.appendChild(div('char-shadow'));
+      stage.appendChild(pet);
+      card.appendChild(stage);
+    }
     var info = div('char-info');
     var top = div('char-top');
     var lv = tid(document.createElement('strong'), 'char-level'); lv.className = 'char-level';
@@ -70,8 +90,7 @@ window.RT = window.RT || {};
     xpRow.appendChild(xp); xpRow.appendChild(document.createTextNode(' XP'));
     var next = tid(document.createElement('p'), 'char-next'); next.className = 'char-next';
     info.appendChild(top); info.appendChild(bar); info.appendChild(xpRow); info.appendChild(next);
-    card.appendChild(stage); card.appendChild(info);
-    root.appendChild(card);
+    card.appendChild(info);
     refs = { lv: lv, nm: nm, bar: bar, fill: fill, xp: xp, next: next };
     lastLevel = null;
   }
@@ -93,23 +112,29 @@ window.RT = window.RT || {};
     refs.bar.setAttribute('data-pct', String(pct));
     refs.fill.style.transform = 'scaleX(' + (pct / 100) + ')';
     refs.next.textContent = '다음 레벨까지 ' + (to - xp) + ' XP';
+    var up = lastLevel !== null && L > lastLevel;
     // 레벨업 연출은 올라갈 때만 (처음 그릴 때·내려갈 때는 없음)
+    // 타이머를 먼저 걸고 3D 갱신은 마지막에 (3D 쪽이 무거워도 600ms 타이머가 밀리지 않게)
     if (lastLevel !== null && L > lastLevel) {
       if (upTimer) clearTimeout(upTimer);
       card.removeAttribute('data-levelup');
       void card.offsetWidth;
       card.setAttribute('data-levelup', '1');
-      upTimer = setTimeout(function () { if (card) card.removeAttribute('data-levelup'); upTimer = null; }, 600);
+      var thisCard = card;
+      upTimer = setTimeout(function () { thisCard.removeAttribute('data-levelup'); upTimer = null; }, 600);
     } else if (lastLevel !== null && L < lastLevel) {
+      if (upTimer) { clearTimeout(upTimer); upTimer = null; }
       card.removeAttribute('data-levelup');
     }
     lastLevel = L;
+    if (is3d && window.RT3D) { try { window.RT3D.update({ stage: S, levelup: up }); } catch (err) {} }
   }
 
   function unmount() {
     if (upTimer) { clearTimeout(upTimer); upTimer = null; }
+    if (is3d && window.RT3D) { try { window.RT3D.dispose(); } catch (err) {} }
     if (root) root.textContent = '';
-    root = null; card = null; refs = null; lastLevel = null;
+    root = null; card = null; refs = null; lastLevel = null; is3d = false;
   }
 
   RT.character = {
