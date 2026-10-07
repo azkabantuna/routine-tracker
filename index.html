@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#FF7A3D">
+  <title>루틴 트래커</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/date.js" defer></script>
+  <script src="js/store.js" defer></script>
+  <script src="js/streak.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <!-- 오류 배너 (저장 데이터 문제·저장 실패 안내) -->
+    <div class="banner-error" data-testid="banner-error" role="alert" hidden></div>
+
+    <!-- 상단 토스트 (칭찬 문구 등) -->
+    <div class="toast" data-testid="toast" aria-live="polite" role="status" hidden></div>
+
+    <main class="screens">
+      <!-- 1. 오늘 -->
+      <section class="screen" id="screen-today" data-screen="today" aria-labelledby="today-title">
+        <header class="today-header">
+          <p class="today-date" id="today-date" data-testid="today-date"></p>
+          <h1 class="screen-title" id="today-title">오늘</h1>
+          <div class="progress" data-testid="progress" data-done-count="0" data-total="0">
+            <div class="progress-inner" id="progress-inner" hidden>
+              <p class="progress-text" id="progress-text">오늘 0/0 완료</p>
+              <div class="progress-bar" aria-hidden="true"><div class="progress-fill" id="progress-fill"></div></div>
+            </div>
+          </div>
+        </header>
+
+        <div class="empty-state" data-testid="empty-state" id="empty-state" hidden>
+          <p class="empty-emoji" aria-hidden="true">🌱</p>
+          <p class="empty-text">아직 루틴이 없어요.<br>힘든 날엔 mini 만 해도 이어지는 루틴, 하나 만들어 볼까요?</p>
+          <button type="button" class="btn btn-primary" data-testid="btn-first-routine" id="btn-first-routine">첫 루틴 만들기</button>
+        </div>
+
+        <ul class="card-list" id="card-list"></ul>
+      </section>
+
+      <!-- 2. 기록 -->
+      <section class="screen" id="screen-log" data-screen="log" aria-labelledby="log-title" hidden>
+        <h1 class="screen-title" id="log-title">기록</h1>
+        <div class="placeholder" data-testid="log-placeholder">
+          <p class="empty-emoji" aria-hidden="true">📅</p>
+          <p>달력 기록은 M2 에서 준비 중이에요.</p>
+        </div>
+      </section>
+
+      <!-- 3. 루틴 관리 -->
+      <section class="screen" id="screen-manage" data-screen="manage" aria-labelledby="manage-title" hidden>
+        <h1 class="screen-title" id="manage-title">루틴 관리</h1>
+        <button type="button" class="btn btn-primary btn-block" data-testid="btn-add-routine" id="btn-add-routine">+ 루틴 추가</button>
+        <p class="manage-empty" id="manage-empty" hidden>아직 루틴이 없어요. 위 버튼으로 추가해 보세요.</p>
+        <ul class="manage-list" id="manage-list"></ul>
+      </section>
+    </main>
+
+    <!-- 아래 탭 -->
+    <nav class="tabbar" role="tablist" aria-label="화면 바꾸기">
+      <button type="button" class="tab" role="tab" data-tab="today" data-testid="tab-today" aria-selected="true">
+        <span class="tab-icon" aria-hidden="true">☀️</span><span>오늘</span>
+      </button>
+      <button type="button" class="tab" role="tab" data-tab="log" data-testid="tab-log" aria-selected="false">
+        <span class="tab-icon" aria-hidden="true">📅</span><span>기록</span>
+      </button>
+      <button type="button" class="tab" role="tab" data-tab="manage" data-testid="tab-manage" aria-selected="false">
+        <span class="tab-icon" aria-hidden="true">📝</span><span>루틴 관리</span>
+      </button>
+    </nav>
+
+    <!-- 루틴 추가·수정 시트 -->
+    <div class="sheet-backdrop" id="sheet-backdrop" hidden>
+      <form class="sheet" data-testid="sheet" id="sheet" hidden novalidate>
+        <h2 class="sheet-title" id="sheet-title">루틴 추가</h2>
+        <label class="field">
+          <span class="field-label">이름</span>
+          <input type="text" name="name" data-testid="input-name" id="input-name" maxlength="100" autocomplete="off" placeholder="예: 운동">
+        </label>
+        <p class="error-name" data-testid="error-name" id="error-name" role="alert" hidden>루틴 이름을 적어 주세요</p>
+        <label class="field">
+          <span class="field-label"><span class="dot dot-mini"></span>mini (아주 조금)</span>
+          <input type="text" name="mini" data-testid="input-mini" id="input-mini" maxlength="100" autocomplete="off" placeholder="예: 푸시업 5개">
+        </label>
+        <label class="field">
+          <span class="field-label"><span class="dot dot-more"></span>more (보통)</span>
+          <input type="text" name="more" data-testid="input-more" id="input-more" maxlength="100" autocomplete="off" placeholder="예: 20분">
+        </label>
+        <label class="field">
+          <span class="field-label"><span class="dot dot-max"></span>max (최고)</span>
+          <input type="text" name="max" data-testid="input-max" id="input-max" maxlength="100" autocomplete="off" placeholder="예: 1시간">
+        </label>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-ghost" data-testid="btn-close" id="btn-close">닫기</button>
+          <button type="submit" class="btn btn-primary" data-testid="btn-save" id="btn-save">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
