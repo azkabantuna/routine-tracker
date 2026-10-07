@@ -615,4 +615,190 @@ await run(async (browser) => {
     }
     return errs.length ? errs.join('; ') : true;
   });
+
+  // ========== M7 외형 개선: 3D 배경·HUD·성능 ==========
+  await check('M7-1. 배경 투명: data-rt-bg="clear", WebGL alpha 투명, 배경 크림 그라데이션', async () => {
+    const { ctx, page } = await open(browser, { seed: fixtureRaw, viewport: { width: 390, height: 844 } });
+    await sleep(600);
+    await page.click(tid('tab-manage'));
+    await sleep(400);
+    const data = await page.evaluate(() => {
+      const card = document.querySelector('[data-testid="char-card"]');
+      const canvas = document.querySelector('[data-testid="char-canvas"]');
+      if (!canvas) return { error: 'no-canvas' };
+      const rtBg = card ? card.getAttribute('data-rt-bg') : null;
+      const cardStyle = getComputedStyle(card);
+      const bgImage = cardStyle.backgroundImage;
+      const background = cardStyle.background;
+      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl'); // three 는 webgl2 를 씀: webgl 을 먼저 요청하면 다른 종류 컨텍스트 오류
+      const hasAlpha = gl ? gl.getContextAttributes().alpha === true : null;
+      return { rtBg, bgImage, background, hasAlpha };
+    });
+    await ctx.close();
+    const errs = [];
+    if (data.error) errs.push('char-canvas 없음');
+    else {
+      if (data.rtBg !== 'clear') errs.push(`data-rt-bg=${data.rtBg} (기대 clear)`);
+      // 크림 색상 검사: backgroundImage 또는 background에서 확인
+      const bgStr = (data.bgImage || '') + (data.background || '');
+      if (!(/fff8f0|f0e4d6|255.*248.*240|240.*228.*214/i.test(bgStr))) {
+        errs.push(`배경 크림색 없음`);
+      }
+      if (data.hasAlpha !== true) errs.push(`WebGL alpha=${data.hasAlpha} (기대 true)`);
+    }
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  await check('M7-2. HUD 대비: char-level·char-xp 글자색과 #FFF8F0 대비 ≥4.5', async () => {
+    const { ctx, page } = await open(browser, { seed: fixtureRaw, viewport: { width: 390, height: 844 } });
+    await sleep(600);
+    await page.click(tid('tab-manage'));
+    await sleep(400);
+    const colorData = await page.evaluate(() => {
+      const levelEl = document.querySelector('[data-testid="char-level"]');
+      const xpEl = document.querySelector('[data-testid="char-xp"]');
+      return {
+        levelColor: getComputedStyle(levelEl).color,
+        xpColor: getComputedStyle(xpEl).color,
+      };
+    });
+    await ctx.close();
+
+    const parseRgb = (s) => {
+      const m = s.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      return m ? [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])] : null;
+    };
+    const relLum = (rgb) => {
+      if (!rgb) return null;
+      const [r, g, b] = rgb.map(v => {
+        const c = v / 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const contrast = (rgb1, rgb2) => {
+      const l1 = relLum(rgb1), l2 = relLum(rgb2);
+      if (l1 === null || l2 === null) return null;
+      const lighter = Math.max(l1, l2), darker = Math.min(l1, l2);
+      return (lighter + 0.05) / (darker + 0.05);
+    };
+    const bgRgb = [255, 248, 240]; // #FFF8F0
+    const errs = [];
+    const levelRgb = parseRgb(colorData.levelColor);
+    const xpRgb = parseRgb(colorData.xpColor);
+    if (!levelRgb) errs.push('char-level 색상 파싱 실패');
+    else {
+      const c = contrast(levelRgb, bgRgb);
+      if (c === null || c < 4.5) errs.push(`char-level 대비=${c ? c.toFixed(2) : 'null'} (<4.5)`);
+    }
+    if (!xpRgb) errs.push('char-xp 색상 파싱 실패');
+    else {
+      const c = contrast(xpRgb, bgRgb);
+      if (c === null || c < 4.5) errs.push(`char-xp 대비=${c ? c.toFixed(2) : 'null'} (<4.5)`);
+    }
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  await check('M7-3. 4단계 드로우콜: data-rt-draws 1<2<3<4, 모두 ≤28', async () => {
+    // 고정 logs: 단계1=0, 단계2=36(mini 12), 단계3=120(max 15), 단계4=253(max 31 + more 1)
+    const logConfigs = [
+      { days: 0, type: null },
+      { days: 12, type: 'mini' },
+      { days: 15, type: 'max' },
+      { days: 31, type: 'max', extra: { '2026-10-01': { r: 'more' } } }
+    ];
+
+    const draws = [];
+    for (let i = 0; i < 4; i++) {
+      const config = logConfigs[i];
+      const logs = {};
+      for (let d = 1; d <= config.days; d++) {
+        const dateStr = `2026-09-${String(d).padStart(2, '0')}`;
+        logs[dateStr] = { r: config.type };
+      }
+      if (config.extra) Object.assign(logs, config.extra);
+
+      const seed = JSON.stringify({ version: 1, routines: [], logs });
+      const { ctx, page } = await open(browser, { seed, viewport: { width: 390, height: 844 } });
+      await sleep(600);
+      await page.click(tid('tab-manage'));
+      await sleep(400);
+      const card = page.locator(tid('char-card'));
+      const rtDraws = await card.getAttribute('data-rt-draws');
+      const stage = await card.getAttribute('data-stage');
+      draws.push({ stage, rtDraws: rtDraws ? parseInt(rtDraws) : null });
+      await ctx.close();
+    }
+
+    const errs = [];
+    for (let i = 0; i < 4; i++) {
+      if (draws[i].stage !== String(i + 1)) errs.push(`[${i + 1}] stage=${draws[i].stage} (기대 ${i + 1})`);
+      if (draws[i].rtDraws === null) errs.push(`[${i + 1}] data-rt-draws=null`);
+      else if (draws[i].rtDraws > 28) errs.push(`[${i + 1}] draws=${draws[i].rtDraws} (>28)`);
+    }
+    for (let i = 0; i < 3; i++) {
+      if (draws[i].rtDraws !== null && draws[i + 1].rtDraws !== null && draws[i].rtDraws >= draws[i + 1].rtDraws) {
+        errs.push(`단계 ${i + 1}→${i + 2}: ${draws[i].rtDraws} ≥ ${draws[i + 1].rtDraws}`);
+      }
+    }
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  await check('M7-4. 외부 계약: RT3D 함수 4개, data-scale 0.6/0.75/0.9/1.0 유지', async () => {
+    // 첫 번째 페이지에서 RT3D 함수 확인
+    const { ctx: ctx1, page: page1 } = await open(browser, { seed: fixtureRaw, viewport: { width: 390, height: 844 } });
+    await sleep(600);
+    await page1.click(tid('tab-manage'));
+    await sleep(400);
+    const result = await page1.evaluate(() => {
+      return {
+        hasMount: typeof window.RT3D?.mount === 'function',
+        hasUpdate: typeof window.RT3D?.update === 'function',
+        hasSetActive: typeof window.RT3D?.setActive === 'function',
+        hasDispose: typeof window.RT3D?.dispose === 'function',
+      };
+    });
+    await ctx1.close();
+
+    // 각 단계별 data-scale 확인 (별도 페이지)
+    const logConfigs = [
+      { days: 0, type: null },
+      { days: 12, type: 'mini' },
+      { days: 15, type: 'max' },
+      { days: 31, type: 'max', extra: { '2026-10-01': { r: 'more' } } }
+    ];
+
+    const scales = [];
+    for (let i = 0; i < 4; i++) {
+      const config = logConfigs[i];
+      const logs = {};
+      for (let d = 1; d <= config.days; d++) {
+        const dateStr = `2026-09-${String(d).padStart(2, '0')}`;
+        logs[dateStr] = { r: config.type };
+      }
+      if (config.extra) Object.assign(logs, config.extra);
+
+      const seed = JSON.stringify({ version: 1, routines: [], logs });
+      const { ctx, page } = await open(browser, { seed, viewport: { width: 390, height: 844 } });
+      await sleep(600);
+      await page.click(tid('tab-manage'));
+      await sleep(400);
+      const card = page.locator(tid('char-card'));
+      const scale = await card.getAttribute('data-scale');
+      scales.push(scale);
+      await ctx.close();
+    }
+
+    const errs = [];
+    if (!result.hasMount) errs.push('RT3D.mount 없음');
+    if (!result.hasUpdate) errs.push('RT3D.update 없음');
+    if (!result.hasSetActive) errs.push('RT3D.setActive 없음');
+    if (!result.hasDispose) errs.push('RT3D.dispose 없음');
+
+    const expected = ['0.6', '0.75', '0.9', '1.0'];
+    for (let i = 0; i < 4; i++) {
+      if (scales[i] !== expected[i]) errs.push(`[${i + 1}] scale=${scales[i]} (기대 ${expected[i]})`);
+    }
+    return errs.length ? errs.join('; ') : true;
+  });
 });

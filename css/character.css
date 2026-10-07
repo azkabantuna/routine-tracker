@@ -79,17 +79,18 @@ body:has(#screen-manage:not([hidden])) { overflow-y: hidden; }
 /* 3D: 캔버스가 카드 전체를 채우고, 글씨(HUD)는 그 위에 겹친다 */
 .char-card[data-render="3d"] {
   position: absolute; inset: 0; display: block; margin: 0; padding: 0;
-  border-radius: 0; box-shadow: none; background: var(--bg); overflow: hidden;
+  border-radius: 0; box-shadow: none; background: linear-gradient(180deg, #FFF8F0 0%, #F0E4D6 100%); overflow: hidden;
 }
 .char-card[data-render="3d"] .char-info {
   position: absolute; z-index: 2; top: 14px; left: 16px; right: 16px; pointer-events: none;
-  color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .55);
+  color: var(--text);
 }
-.char-card[data-render="3d"] .char-level { color: #ffd9a0; }
+.char-card[data-render="3d"] .char-level { color: var(--text); }
 .char-card[data-render="3d"] .char-stage-name,
-.char-card[data-render="3d"] .char-next { color: rgba(255, 255, 255, .9); }
-.char-card[data-render="3d"] .char-xp-row strong { color: #fff; }
-.char-card[data-render="3d"] .char-bar { background: rgba(255, 255, 255, .28); }
+.char-card[data-render="3d"] .char-next { color: var(--text); }
+.char-card[data-render="3d"] .char-xp-row { color: var(--text); }
+.char-card[data-render="3d"] .char-xp-row strong { color: var(--text); }
+.char-card[data-render="3d"] .char-bar { background: rgba(43, 45, 66, .14); }
 .char-card[data-render="3d"][data-levelup="1"]::after { display: none; }
 .char-card[data-render="3d"][data-levelup="1"] .char-info { animation: char-hud-pop .6s ease-out 1; }
 @keyframes char-hud-pop { 0% { transform: scale(1); } 35% { transform: scale(1.06); } 100% { transform: scale(1); } }
