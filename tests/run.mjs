@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT = path.resolve(HERE, '..');
-const FEATURES = ['store', 'routines', 'emoji', 'effects', 'motion', 'layout', 'calendar', 'character'];
+const FEATURES = ['store', 'routines', 'emoji', 'effects', 'motion', 'layout', 'calendar', 'character', 'timer'];
 
 // ★ 바뀐 파일 → 돌릴 기능 (표 하나뿐). 표에 없는 파일은 안전하게 전부 돌린다.
 const TABLE = {
@@ -23,8 +23,10 @@ const TABLE = {
   'effects.js': ['effects'],
   'effects.css': ['effects'],
   'screens.js': ['routines', 'motion', 'layout'],
-  'app.js': ['routines', 'motion', 'layout', 'calendar'],
-  'index.html': ['routines', 'motion', 'layout', 'calendar'],
+  'app.js': ['routines', 'motion', 'layout', 'calendar', 'timer'],
+  'index.html': ['routines', 'motion', 'layout', 'calendar', 'timer'],
+  'timer.js': ['timer'],
+  'timer.css': ['timer'],
   'base.css': ['motion', 'layout'],
   'cards.css': ['motion', 'layout'],
   'overlays.css': ['motion', 'layout'],

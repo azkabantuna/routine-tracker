@@ -31,14 +31,14 @@ const allowedOnly = (props, allowed) => props.every((p) => allowed.includes(p));
 
 await run(async (browser) => {
   // ---- 1. 탭 구성 ----
-  await check('1. 탭 3개: 오늘·캘린더·루틴 관리 순서, 2번째 전환 시 aria-selected·화면 전환, 옛 #screen-log 없음', async () => {
+  await check('1. 탭 4개: 오늘·캘린더·루틴 관리·타이머 순서, 2번째 전환 시 aria-selected·화면 전환, 옛 #screen-log 없음', async () => {
     const { ctx, page } = await open(browser, { seed: fixtureRaw, settle: 300 });
     const tabs = await page.locator('nav.tabbar [role="tab"]').all();
     const ids = [], labels = [];
     for (const t of tabs) { ids.push(await t.getAttribute('data-testid')); labels.push((await t.innerText()).replace(/\s+/g, ' ').trim()); }
     const errs = [];
-    if (ids.join('|') !== 'tab-today|tab-calendar|tab-manage') errs.push('순서 ' + ids.join('|'));
-    if (!/오늘/.test(labels[0]) || !/캘린더/.test(labels[1]) || !/루틴 관리/.test(labels[2])) errs.push('이름 ' + labels.join('|'));
+    if (ids.join('|') !== 'tab-today|tab-calendar|tab-manage|tab-timer') errs.push('순서 ' + ids.join('|'));
+    if (!/오늘/.test(labels[0]) || !/캘린더/.test(labels[1]) || !/루틴 관리/.test(labels[2]) || !/타이머/.test(labels[3])) errs.push('이름 ' + labels.join('|'));
     await page.locator(tid('tab-calendar')).click();
     await sleep(450);
     if ((await page.locator(tid('tab-calendar')).getAttribute('aria-selected')) !== 'true') errs.push('aria-selected 안 바뀜');

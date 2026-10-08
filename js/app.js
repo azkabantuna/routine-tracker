@@ -10,7 +10,7 @@ window.RT = window.RT || {};
   document.addEventListener('touchstart', function () {}, { passive: true });
 
   // ---------- 탭 ----------
-  var TAB_ORDER = ['today', 'calendar', 'manage'];
+  var TAB_ORDER = ['today', 'calendar', 'manage', 'timer'];
   var currentTab = null;
   var tabTimer = null;         // 탭 전환 정리 타이머는 하나만
   var screensEl = document.querySelector('.screens');

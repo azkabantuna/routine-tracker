@@ -74,7 +74,7 @@ await run(async (browser) => {
     await check('0-1 첫 로드 콘솔 오류 0 (스크립트 순서)', async () => consoleErrors.length === 0 || consoleErrors.join(' | '));
     await check('0-2 스크립트 순서 date→emoji→store→streak→effects→character3d→character→app, css/effects.css 링크', async () => {
       const o = await page.evaluate(() => ({ js: [...document.querySelectorAll('script[src]')].map((s) => s.getAttribute('src')), css: [...document.querySelectorAll('link[rel=stylesheet]')].map((s) => s.getAttribute('href')) }));
-      const want = ['js/date.js', 'js/emoji.js', 'js/store.js', 'js/routines.js', 'js/streak.js', 'js/effects.js', 'vendor/character3d.js', 'js/character.js', 'js/screens.js', 'js/sheets.js', 'js/calendar.js', 'js/app.js'];
+      const want = ['js/date.js', 'js/emoji.js', 'js/store.js', 'js/routines.js', 'js/streak.js', 'js/effects.js', 'vendor/character3d.js', 'js/character.js', 'js/screens.js', 'js/sheets.js', 'js/calendar.js', 'js/timer.js', 'js/app.js'];
       if (JSON.stringify(o.js) !== JSON.stringify(want)) return '순서: ' + o.js.join(',');
       return o.css.includes('css/effects.css') || 'effects.css 링크 없음';
     });

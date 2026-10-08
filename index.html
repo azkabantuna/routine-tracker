@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="css/effects.css">
   <link rel="stylesheet" href="css/calendar.css">
   <link rel="stylesheet" href="css/character.css">
+  <link rel="stylesheet" href="css/timer.css">
   <script src="js/date.js" defer></script>
   <script src="js/emoji.js" defer></script>
   <script src="js/store.js" defer></script>
@@ -22,6 +23,7 @@
   <script src="js/screens.js" defer></script>
   <script src="js/sheets.js" defer></script>
   <script src="js/calendar.js" defer></script>
+  <script src="js/timer.js" defer></script>
   <script src="js/app.js" defer></script>
 </head>
 <body>
@@ -90,6 +92,34 @@
           </div>
         </div>
       </section>
+
+      <!-- 4. 타이머 (저장은 routineTimer 하나뿐) -->
+      <section class="screen" id="screen-timer" data-screen="timer" data-testid="screen-timer" data-timer-state="idle" aria-labelledby="timer-title" hidden>
+        <h1 class="screen-title" id="timer-title">타이머</h1>
+        <div class="timer-ring-wrap">
+          <svg class="timer-svg" viewBox="0 0 100 100" aria-hidden="true" data-testid="timer-ring" data-timer-ratio="1.000" data-timer-left="1500">
+            <circle class="timer-track" cx="50" cy="50" r="45"></circle>
+            <circle cx="50" cy="50" r="45" transform="rotate(-90 50 50)"></circle>
+          </svg>
+          <p class="timer-time" data-testid="timer-time" aria-live="off">25:00</p>
+        </div>
+        <p class="timer-done" data-testid="timer-done" hidden>끝</p>
+        <div class="timer-min-row">
+          <label for="timer-min">집중 시간(분)</label>
+          <input type="text" inputmode="numeric" id="timer-min" data-testid="timer-min" autocomplete="off" value="25">
+        </div>
+        <p class="timer-min-error" data-testid="timer-min-error" role="alert" hidden>1~180 사이 숫자(분)만 넣을 수 있어요</p>
+        <div class="timer-actions">
+          <button type="button" class="timer-btn" data-testid="timer-start">시작</button>
+          <button type="button" class="timer-btn" data-testid="timer-pause" hidden>일시정지</button>
+          <button type="button" class="timer-btn" data-testid="timer-reset">초기화</button>
+        </div>
+        <div class="timer-fs-row">
+          <button type="button" class="timer-icon-btn" data-testid="timer-fs" aria-label="전체화면" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
+          </button>
+        </div>
+      </section>
     </main>
 
     <!-- 아래 탭 -->
@@ -102,6 +132,9 @@
       </button>
       <button type="button" class="tab" role="tab" data-tab="manage" data-testid="tab-manage" aria-selected="false">
         <span class="tab-icon" aria-hidden="true">📝</span><span>루틴 관리</span>
+      </button>
+      <button type="button" class="tab" role="tab" data-tab="timer" data-testid="tab-timer" aria-selected="false">
+        <span class="tab-icon" aria-hidden="true">⏱️</span><span>타이머</span>
       </button>
     </nav>
 
@@ -158,6 +191,18 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- 타이머 검은 덮개 (.screen 의 transform 영향을 피하려고 화면 밖에 둠) -->
+  <div class="timer-cover" id="timer-cover" data-testid="timer-cover" data-timer-state="idle" hidden>
+    <svg class="timer-svg" viewBox="0 0 100 100" aria-hidden="true" data-testid="timer-cover-ring" data-timer-ratio="1.000" data-timer-left="1500">
+      <circle class="timer-track" cx="50" cy="50" r="45"></circle>
+      <circle cx="50" cy="50" r="45" transform="rotate(-90 50 50)"></circle>
+    </svg>
+    <p class="timer-cover-time" data-testid="timer-cover-time">25:00</p>
+    <button type="button" class="timer-icon-btn timer-cover-close" data-testid="timer-cover-close" aria-label="닫기">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+    </button>
   </div>
 </body>
 </html>
