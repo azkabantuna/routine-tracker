@@ -98,11 +98,19 @@
         <h1 class="screen-title" id="timer-title">타이머</h1>
         <div class="timer-ring-wrap">
           <svg class="timer-svg" viewBox="0 0 100 100" aria-hidden="true" data-testid="timer-ring" data-timer-ratio="1.000" data-timer-left="1500">
+            <defs>
+              <linearGradient id="timer-grad" x1="0" y1="0" x2="1" y2="1">
+                <stop class="timer-stop1" offset="0" stop-color="#4DA8FF"></stop>
+                <stop class="timer-stop2" offset="1" stop-color="#4DA8FF"></stop>
+              </linearGradient>
+            </defs>
             <circle class="timer-track" cx="50" cy="50" r="45"></circle>
-            <circle cx="50" cy="50" r="45" transform="rotate(-90 50 50)"></circle>
+            <circle class="timer-arc" cx="50" cy="50" r="45" transform="rotate(-90 50 50)"></circle>
           </svg>
           <p class="timer-time" data-testid="timer-time" aria-live="off">25:00</p>
+          <div class="timer-tiles" data-testid="timer-tiles" aria-hidden="true"></div>
         </div>
+        <p class="timer-unit" data-testid="timer-unit"></p>
         <p class="timer-done" data-testid="timer-done" hidden>끝</p>
         <div class="timer-min-row">
           <label for="timer-min">집중 시간(분)</label>
@@ -115,6 +123,15 @@
           <button type="button" class="timer-btn" data-testid="timer-reset">초기화</button>
         </div>
         <div class="timer-fs-row">
+          <button type="button" class="timer-icon-btn" data-testid="timer-view-ring" aria-label="원 보기" aria-pressed="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle></svg>
+          </button>
+          <button type="button" class="timer-icon-btn" data-testid="timer-view-tiles" aria-label="타일 보기" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"></rect><rect x="14" y="4" width="6" height="6" rx="1.5"></rect><rect x="4" y="14" width="6" height="6" rx="1.5"></rect><rect x="14" y="14" width="6" height="6" rx="1.5"></rect></svg>
+          </button>
+          <button type="button" class="timer-icon-btn" data-testid="timer-sound" aria-label="소리" aria-pressed="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"></path><path d="M16 9a4 4 0 0 1 0 6"></path><path class="timer-sound-off" d="M4 4l16 16"></path></svg>
+          </button>
           <button type="button" class="timer-icon-btn" data-testid="timer-fs" aria-label="전체화면" hidden>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg>
           </button>
@@ -196,10 +213,17 @@
   <!-- 타이머 검은 덮개 (.screen 의 transform 영향을 피하려고 화면 밖에 둠) -->
   <div class="timer-cover" id="timer-cover" data-testid="timer-cover" data-timer-state="idle" hidden>
     <svg class="timer-svg" viewBox="0 0 100 100" aria-hidden="true" data-testid="timer-cover-ring" data-timer-ratio="1.000" data-timer-left="1500">
+      <defs>
+        <linearGradient id="timer-cover-grad" x1="0" y1="0" x2="1" y2="1">
+          <stop class="timer-stop1" offset="0" stop-color="#4DA8FF"></stop>
+          <stop class="timer-stop2" offset="1" stop-color="#4DA8FF"></stop>
+        </linearGradient>
+      </defs>
       <circle class="timer-track" cx="50" cy="50" r="45"></circle>
-      <circle cx="50" cy="50" r="45" transform="rotate(-90 50 50)"></circle>
+      <circle class="timer-arc" cx="50" cy="50" r="45" transform="rotate(-90 50 50)"></circle>
     </svg>
     <p class="timer-cover-time" data-testid="timer-cover-time">25:00</p>
+    <div class="timer-tiles" data-testid="timer-cover-tiles" aria-hidden="true"></div>
     <button type="button" class="timer-icon-btn timer-cover-close" data-testid="timer-cover-close" aria-label="닫기">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
     </button>

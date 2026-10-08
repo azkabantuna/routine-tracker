@@ -9,10 +9,11 @@ const C = 2 * Math.PI * 45; // 둘레 (반지름 45)
 const TABS = ['tab-today', 'tab-calendar', 'tab-manage', 'tab-timer'];
 
 // 가짜 시계로 연다: install → goto → 그 시각에서 멈춤. 시간은 runFor/setSystemTime 으로만 흐른다.
-async function openT(browser, { seed = fixtureRaw, hasTouch = false, init = null } = {}) {
+// reduce: 움직임 줄이기 설정 여부. init: goto 전에 실행할 가짜 환경(AudioContext·rAF 세기 등)
+async function openT(browser, { seed = fixtureRaw, hasTouch = false, init = null, reduce = false } = {}) {
   const ctx = await browser.newContext({
     viewport: { width: 390, height: 844 }, timezoneId: 'Asia/Seoul', locale: 'ko-KR', hasTouch, isMobile: false,
-    reducedMotion: 'no-preference',
+    reducedMotion: reduce ? 'reduce' : 'no-preference',
   });
   await ctx.route('**/*', (route) => {
     const u = new URL(route.request().url());
@@ -49,6 +50,58 @@ const minVal = (page) => page.locator(tid('timer-min')).inputValue();
 const minDis = (page) => page.locator(tid('timer-min')).isDisabled();
 const vis = (page, id) => page.locator(tid(id)).isVisible();
 const fillMin = (page, v) => page.fill(tid('timer-min'), v);
+
+// ---- M9 도우미 ----
+const scaleYOf = (t) => { const m = /scaleY\(([^)]+)\)/.exec(t || ''); return m ? parseFloat(m[1]) : NaN; };
+const msOf = (d) => (d.endsWith('ms') ? parseFloat(d) : parseFloat(d) * 1000);
+// 칸 목록: sel 안의 .timer-tile 전부 (data-tile-i 순서대로)
+const tilesOf = (page, sel) => page.evaluate((s) => [...document.querySelectorAll(s + ' .timer-tile')].map((t) => ({
+  i: Number(t.getAttribute('data-tile-i')), st: t.getAttribute('data-tile'),
+  y: t.querySelector('.timer-fill').style.transform, pop: t.classList.contains('tile-pop'),
+  anim: getComputedStyle(t).animationName, delay: getComputedStyle(t).animationDelay,
+})), sel);
+const rootTiles = (page) => tilesOf(page, '[data-testid="timer-tiles"]');
+const offOf = (page) => page.locator(tid('timer-ring')).evaluate((el) => parseFloat(el.getAttribute('stroke-dashoffset')));
+const rafCount = (page) => page.evaluate(() => window.__raf);
+const rafReset = (page) => page.evaluate(() => { window.__raf = 0; });
+const textW = (page, id) => page.locator(tid(id)).evaluate((el) => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().width; });
+// 가짜 환경: rAF 호출 수 세기 (goto 전에 붙인다)
+const rafInit = () => {
+  window.__raf = 0;
+  const orig = window.requestAnimationFrame;
+  window.requestAnimationFrame = function (cb) { window.__raf++; return orig.call(window, cb); };
+};
+// 가짜 환경: 종료 축포 호출 수 세기 (goto 뒤, RT 가 있은 뒤에 붙인다)
+const wrapCel = (page) => page.evaluate(() => {
+  window.__cel = 0;
+  const o = RT.effects.celebrate;
+  RT.effects.celebrate = function (opt) { window.__cel++; return o.call(this, opt); };
+});
+// 가짜 환경: AudioContext (goto 전에 붙인다). 만든 개수·오실레이터 시작/끝 시각·주파수·gain 최고값을 기록
+const audioInit = () => {
+  const A = window.__ac = { made: 0, osc: [], gainMax: 0 };
+  const note = (v) => { if (typeof v === 'number' && v > A.gainMax) A.gainMax = v; };
+  class FakeAudioContext {
+    constructor() { A.made++; this.currentTime = 0; this.destination = {}; }
+    resume() { return Promise.resolve(); }
+    createOscillator() {
+      const rec = { freq: 0, start: null, stop: null };
+      A.osc.push(rec);
+      return {
+        type: '',
+        frequency: { set value(v) { rec.freq = v; }, get value() { return rec.freq; } },
+        connect() {},
+        start(t) { rec.start = t; },
+        stop(t) { rec.stop = t; },
+      };
+    }
+    createGain() { return { gain: { setValueAtTime(v) { note(v); }, linearRampToValueAtTime(v) { note(v); } }, connect() {} }; }
+  }
+  window.AudioContext = FakeAudioContext;
+  window.webkitAudioContext = FakeAudioContext;
+};
+// 가짜 환경: 저장된 칸 보기 = 타일 (goto 전에 붙인다)
+const tilesInit = () => { localStorage.setItem('routineTimerView', 'tiles'); };
 
 await run(async (browser) => {
   // ===== 흐름 1: 기본값·입력·저장·새로고침·잘못된 입력 =====
@@ -234,7 +287,7 @@ await run(async (browser) => {
     await page.click(tid('timer-start'));
     await runFor(page, 10000); // "0:50"
     await page.click(tid('timer-fs'));
-    await check('12. 덮개(마우스): 뷰포트 전체·배경 rgb(0,0,0)·탭바 가운데가 덮개 안·직계 자식 ring·time·close 뿐·글자 "0:50" 만', async () => {
+    await check('12. 덮개(마우스): 뷰포트 전체·배경 rgb(0,0,0)·탭바 가운데가 덮개 안·직계 자식 ring·tiles·time·close 뿐(tiles 는 칸 보기용)·글자 "0:50" 만', async () => {
       const errs = [];
       if (!(await vis(page, 'timer-cover'))) return '덮개 안 열림';
       const info = await page.evaluate(() => {
@@ -254,7 +307,7 @@ await run(async (browser) => {
       if (Math.abs(info.w - info.vw) > 1 || Math.abs(info.h - info.vh) > 1) errs.push(`덮개 크기 ${info.w}x${info.h} (뷰포트 ${info.vw}x${info.vh})`);
       if (info.bg !== 'rgb(0, 0, 0)') errs.push('배경 ' + info.bg);
       if (!info.hitInCover) errs.push('탭바 가운데가 덮개 밖(탭바가 위)');
-      const want = ['timer-cover-close', 'timer-cover-ring', 'timer-cover-time'];
+      const want = ['timer-cover-close', 'timer-cover-ring', 'timer-cover-tiles', 'timer-cover-time'];
       if (JSON.stringify(info.kids) !== JSON.stringify(want)) errs.push('직계 자식 ' + info.kids.join(','));
       if (info.text !== '0:50') errs.push('덮개 글자 "' + info.text + '"');
       return errs.length ? errs.join('; ') : true;
@@ -348,7 +401,7 @@ await run(async (browser) => {
     await page.tap(tid('timer-start'));
     await runFor(page, 3000); // 25:00 → 24:57
     await page.tap(tid('timer-fs'));
-    await check('18. 진짜 터치로 덮개 열기: 뷰포트 전체·배경 rgb(0,0,0)·탭바 가운데가 덮개 안·자식 ring·time·close 뿐·글자 "24:57"', async () => {
+    await check('18. 진짜 터치로 덮개 열기: 뷰포트 전체·배경 rgb(0,0,0)·탭바 가운데가 덮개 안·자식 ring·tiles·time·close 뿐·글자 "24:57"', async () => {
       const errs = [];
       if (!(await vis(page, 'timer-cover'))) return '덮개 안 열림';
       const info = await page.evaluate(() => {
@@ -367,7 +420,7 @@ await run(async (browser) => {
       if (Math.abs(info.x) > 1 || Math.abs(info.y) > 1 || Math.abs(info.w - info.vw) > 1 || Math.abs(info.h - info.vh) > 1) errs.push(`덮개 rect ${info.x},${info.y} ${info.w}x${info.h}`);
       if (info.bg !== 'rgb(0, 0, 0)') errs.push('배경 ' + info.bg);
       if (!info.hitInCover) errs.push('탭바 가운데가 덮개 밖');
-      const want = ['timer-cover-close', 'timer-cover-ring', 'timer-cover-time'];
+      const want = ['timer-cover-close', 'timer-cover-ring', 'timer-cover-tiles', 'timer-cover-time'];
       if (JSON.stringify(info.kids) !== JSON.stringify(want)) errs.push('직계 자식 ' + info.kids.join(','));
       if (info.text !== '24:57') errs.push('덮개 글자 "' + info.text + '"');
       return errs.length ? errs.join('; ') : true;
@@ -472,22 +525,25 @@ await run(async (browser) => {
     await ctx.close();
   }
 
-  // ===== 흐름 9: 타이머 버튼 꾸밈 없음 (정적 · 마우스 누름 · 진짜 터치 누름 · 기존 버튼 대조) =====
+  // ===== 흐름 9: 타이머 버튼 누름 (정적 · 마우스 누름 · 진짜 터치 누름 · 기존 버튼 대조) =====
   {
     const { ctx, page } = await openT(browser, { hasTouch: true });
     const cdp = await page.context().newCDPSession(page);
     await tab(page, 'tab-timer');
     await fillMin(page, '1');
     const STATIC_IDS = ['timer-start', 'timer-pause', 'timer-reset', 'timer-fs', 'timer-cover-close'];
+    // 쉬는 때 배경색 (시작 = 주황 알약, 나머지 흰 바탕, 덮개 닫기 = 검정)
+    const WANT_BG = { 'timer-start': 'rgb(255, 122, 61)', 'timer-pause': 'rgb(255, 255, 255)', 'timer-reset': 'rgb(255, 255, 255)', 'timer-fs': 'rgb(255, 255, 255)', 'timer-cover-close': 'rgb(0, 0, 0)' };
     const styleOf = (id) => page.locator(tid(id)).evaluate((el) => {
       const cs = getComputedStyle(el);
-      return { shadow: cs.boxShadow, img: cs.backgroundImage, bg: cs.backgroundColor, tf: cs.transform, active: el.matches(':active'), cls: el.getAttribute('class') || '' };
+      return { shadow: cs.boxShadow, img: cs.backgroundImage, bg: cs.backgroundColor, tf: cs.transform, color: cs.color, bc: cs.borderTopColor, active: el.matches(':active'), cls: el.getAttribute('class') || '' };
     });
     // 누른 상태만 보고 바로 취소한다(클릭이 일어나지 않게 버튼 밖에서 놓음/touchCancel). 상태는 안 바뀐다.
     const mousePress = async (id) => {
       const b = await page.locator(tid(id)).boundingBox();
       await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
       await page.mouse.down();
+      await sleep(250); // 누름 전환(transition 120ms)이 끝난 뒤에 읽는다
       const st = await styleOf(id);
       await page.mouse.move(1, 1);
       await page.mouse.up();
@@ -497,9 +553,9 @@ await run(async (browser) => {
       const b = await page.locator(tid(id)).boundingBox();
       await page.evaluate(() => { window.__touchHit = null; document.addEventListener('touchstart', (e) => { window.__touchHit = (e.target.closest('[data-testid]') || {}).dataset?.testid ?? null; }, { capture: true, once: true }); });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }] });
-      await sleep(150);
+      await sleep(250);
       const st = await styleOf(id);
-      st.hit = await page.evaluate(() => window.__touchHit); // 진짜 터치가 이 버튼에 닿았는지 (CDP 터치는 :active 를 안 켜는 경우가 있어 함께 본다)
+      st.hit = await page.evaluate(() => window.__touchHit); // 진짜 터치가 이 버튼에 닿았는지
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
       return st;
     };
@@ -508,14 +564,19 @@ await run(async (browser) => {
     const staticRes = {};
     for (const id of STATIC_IDS) staticRes[id] = await styleOf(id); // 숨은 버튼도 computed 값은 읽힌다
 
-    await check('25a. 타이머 버튼 5개(시작·일시정지·초기화·전체화면·닫기 아이콘): box-shadow "none"·background-image 에 gradient 없음·background-color rgb(255, 255, 255) 또는 투명', () => {
+    // 누름 때 바뀌어도 되는 것은 transform 뿐: 그림자·배경·글자색·테두리색이 쉬는 때와 같아야 한다
+    const sameAsIdle = (id, s) => {
+      const base = staticRes[id];
+      return s.shadow === base.shadow && s.img === base.img && s.bg === base.bg && s.color === base.color && s.bc === base.bc;
+    };
+
+    await check('25a. 타이머 버튼 5개 쉬는 때: box-shadow "none"·그라데이션 없음·배경색이 계획 값(시작 rgb(255, 122, 61), 나머지 흰 바탕, 닫기 검정)', () => {
       const errs = [];
       for (const id of STATIC_IDS) {
         const s = staticRes[id];
         if (s.shadow !== 'none') errs.push(`${id} box-shadow ${s.shadow}`);
         if (/gradient/i.test(s.img)) errs.push(`${id} 그라데이션 ${s.img}`);
-        // 덮개 닫기 버튼은 검은 덮개 위라 검정(=덮개색)도 꾸밈 아님
-        if (!['rgb(255, 255, 255)', 'rgba(0, 0, 0, 0)', 'transparent'].concat(id === 'timer-cover-close' ? ['rgb(0, 0, 0)'] : []).includes(s.bg)) errs.push(`${id} 배경색 ${s.bg}`);
+        if (s.bg !== WANT_BG[id]) errs.push(`${id} 배경색 ${s.bg} (기대 ${WANT_BG[id]})`);
       }
       return errs.length ? errs.join('; ') : true;
     });
@@ -535,16 +596,17 @@ await run(async (browser) => {
     mouseRes['timer-cover-close'] = await mousePress('timer-cover-close');
     touchRes['timer-cover-close'] = await touchPress('timer-cover-close');
 
+    // 실패 = 눌렀는데 transform 이 안 바뀌었거나(scale 없음), 그림자·배경·글자색·테두리색이 바뀐 것
     const pressFail = (res, touch) => Object.entries(res)
-      .filter(([id, s]) => !(touch ? (s.hit === id && s.tf === 'none') : (s.active && s.tf === 'none')))
-      .map(([id, s]) => `${id}(:active ${s.active}, 터치 닿음 ${s.hit}, transform ${s.tf})`);
+      .filter(([id, s]) => !((touch ? s.hit === id : s.active) && s.tf !== 'none' && sameAsIdle(id, s)))
+      .map(([id, s]) => `${id}(${touch ? '터치 닿음 ' + s.hit : ':active ' + s.active}, transform ${s.tf}, 그림자·배경 그대로 ${sameAsIdle(id, s)})`);
 
-    await check('25b. 마우스로 누르는 동안(down): 시작·초기화·일시정지·전체화면·닫기 모두 :active 이고 transform none', () => {
+    await check('25b. 마우스로 누르는 동안(down): 시작·초기화·일시정지·전체화면·닫기 모두 :active 이고 transform 만 바뀜(scale)', () => {
       const f = pressFail(mouseRes);
       return f.length ? f.join('; ') : true;
     });
 
-    await check('25c. 진짜 터치로 누르는 동안(CDP touchStart): 같은 5개 모두 터치가 그 버튼에 닿고 transform none', () => {
+    await check('25c. 진짜 터치로 누르는 동안(CDP touchStart): 같은 5개 모두 터치가 그 버튼에 닿고 transform 만 바뀜(scale)', () => {
       const f = pressFail(touchRes, true);
       return f.length ? f.join('; ') : true;
     });
@@ -556,19 +618,458 @@ await run(async (browser) => {
     await ctx.close();
   }
 
-  // ===== 디자인 없음 (정적 검사 + 대조) =====
-  // 끄는 선언(box-shadow·transition·animation: none 뒤 ; 또는 })만 허용. 켜는 선언·값 있는 그림자·gradient·@keyframes 는 실패.
-  await check('24. timer.css 에 켜는 box-shadow·gradient·animation·transition·@keyframes 0개 (끄기 선언만 허용, 대조 포함)', () => {
-    const re = /box-shadow|gradient|animation|transition|@keyframes/;
-    const offOk = /\b(box-shadow|transition|animation)\s*:\s*none\s*(?=[;}])/g;
-    const strip = (s) => s.replace(offOk, '');
-    if (!re.test('.x{transition:all 1s}')) return '대조 실패: 검사식이 transition 을 못 잡음';
-    if (re.test(strip('.x{transition: none;animation:none;box-shadow:none}'))) return '대조 실패: 끄기 선언(none)이 허용 안 됨';
-    if (!re.test(strip('.x{transition:none, transform 1s}'))) return '대조 실패: 켜는 선언(none 뒤 쉼표)이 통과됨';
-    if (!re.test(strip('.x{box-shadow:0 2px 4px #000}'))) return '대조 실패: 그림자 값이 통과됨';
+  // ===== 흐름 10: 색·링 모양 (1분 설정) =====
+  {
+    const { ctx, page } = await openT(browser);
+    await tab(page, 'tab-timer');
+    await fillMin(page, '1');
+    const readColors = () => page.evaluate(() => ({
+      ring: document.querySelector('[data-testid="timer-ring"]').getAttribute('data-timer-color'),
+      root: document.getElementById('screen-timer').getAttribute('data-timer-color'),
+      cover: document.querySelector('[data-testid="timer-cover"]').getAttribute('data-timer-color'),
+    }));
+    const cIdle = await readColors();
+    await page.click(tid('timer-start'));
+    await runFor(page, 30000);
+    const cHalf = await readColors();
+    await runFor(page, 30000);
+    const cDone = await readColors();
+    await check('26. 색 경계 3점(1분 설정, 화면·링·덮개 모두): 60초(ratio 1)=rgb(77,168,255) · 30초(0.5)=rgb(197,197,62) · 0초(0)=rgb(255,122,61)', () => {
+      const errs = [];
+      const want = [[cIdle, 'rgb(77,168,255)', '60초'], [cHalf, 'rgb(197,197,62)', '30초'], [cDone, 'rgb(255,122,61)', '0초']];
+      for (const [got, w, label] of want) for (const k of ['ring', 'root', 'cover']) if (got[k] !== w) errs.push(`${label} ${k} ${got[k]} (기대 ${w})`);
+      return errs.length ? errs.join('; ') : true;
+    });
+
+    await check('27. 링: 선 끝 stroke-linecap round · 선 색 그라데이션 url(#timer-grad)(덮개는 timer-cover-grad) · 정지점 2개', async () => {
+      const r = await page.evaluate(() => {
+        const pick = (sel) => {
+          const cs = getComputedStyle(document.querySelector(sel));
+          const gid = (cs.stroke.match(/#([\w-]+)/) || [])[1] || '';
+          const g = document.getElementById(gid);
+          return { cap: cs.strokeLinecap, grad: gid, stops: g ? g.querySelectorAll('stop').length : 0 };
+        };
+        return { ring: pick('[data-testid="timer-ring"] .timer-arc'), cover: pick('[data-testid="timer-cover-ring"] .timer-arc') };
+      });
+      const errs = [];
+      if (r.ring.cap !== 'round') errs.push('화면 링 cap ' + r.ring.cap);
+      if (r.ring.grad !== 'timer-grad') errs.push('화면 링 선 ' + r.ring.grad);
+      if (r.ring.stops !== 2) errs.push('화면 정지점 ' + r.ring.stops);
+      if (r.cover.cap !== 'round') errs.push('덮개 링 cap ' + r.cover.cap);
+      if (r.cover.grad !== 'timer-cover-grad') errs.push('덮개 링 선 ' + r.cover.grad);
+      return errs.length ? errs.join('; ') : true;
+    });
+    await ctx.close();
+  }
+
+  // ===== 흐름 11: 숫자 폭 (tabular-nums) =====
+  {
+    const { ctx, page } = await openT(browser);
+    await tab(page, 'tab-timer');
+    await fillMin(page, '1');
+    await page.click(tid('timer-start'));
+    await runFor(page, 1000);
+    const txtA = await val(page, 'timer-time');
+    const wA = await textW(page, 'timer-time');
+    await runFor(page, 48000);
+    const txtB = await val(page, 'timer-time');
+    const wB = await textW(page, 'timer-time');
+    const fvn = await page.evaluate(() => getComputedStyle(document.querySelector('[data-testid="timer-time"]')).fontVariantNumeric);
+    const ctl = await page.evaluate(() => {
+      const src = document.querySelector('[data-testid="timer-time"]');
+      const c = src.cloneNode(true);
+      c.removeAttribute('data-testid');
+      c.style.fontVariantNumeric = 'normal';
+      c.style.position = 'absolute'; c.style.left = '0'; c.style.top = '0'; c.style.whiteSpace = 'nowrap';
+      document.body.appendChild(c);
+      const w = (t) => { c.textContent = t; const r = document.createRange(); r.selectNodeContents(c); return r.getBoundingClientRect().width; };
+      const out = [w('0:59'), w('0:11')];
+      c.remove();
+      return out;
+    });
+    await check('28. 숫자: tabular-nums · "0:59"→"0:11" 바뀌어도 숫자 글자 폭 차이 ≤0.5px (대조: 기본 숫자 폭으로 재면 차이가 0.5px 넘어야 함)', () => {
+      const errs = [];
+      if (txtA !== '0:59') errs.push('앞 글자 ' + txtA);
+      if (txtB !== '0:11') errs.push('뒤 글자 ' + txtB);
+      if (fvn !== 'tabular-nums') errs.push('font-variant-numeric ' + fvn);
+      if (!(Math.abs(wA - wB) <= 0.5)) errs.push(`폭 ${wA.toFixed(2)}→${wB.toFixed(2)}`);
+      if (!(Math.abs(ctl[0] - ctl[1]) > 0.5)) errs.push(`대조 실패: 기본 숫자 폭도 같아 구분 못 함 (${ctl[0].toFixed(2)}, ${ctl[1].toFixed(2)})`);
+      return errs.length ? errs.join('; ') : true;
+    });
+    await ctx.close();
+  }
+
+  // ===== 흐름 12: 보기 스위치 (진짜 터치 tap) · 칸 25개·단위 =====
+  {
+    const { ctx, page } = await openT(browser, { hasTouch: true });
+    await page.tap(tid('tab-timer'));
+    await fillMin(page, '1');
+    const viewState = () => page.evaluate(() => ({
+      view: document.getElementById('screen-timer').getAttribute('data-timer-view'),
+      ringP: document.querySelector('[data-testid="timer-view-ring"]').getAttribute('aria-pressed'),
+      tilesP: document.querySelector('[data-testid="timer-view-tiles"]').getAttribute('aria-pressed'),
+    }));
+    const s0 = await viewState();
+    await page.tap(tid('timer-view-tiles'));
+    const s1 = await viewState();
+    const v1 = await page.evaluate(() => localStorage.getItem('routineTimerView'));
+    const t1 = await stored(page);
+    await page.reload();
+    await page.tap(tid('tab-timer'));
+    const s2 = await viewState();
+    const t2 = await stored(page);
+    const tl = await rootTiles(page);
+    const cl = await tilesOf(page, '[data-testid="timer-cover-tiles"]');
+    const unit1 = await ctxt(page, 'timer-unit');
+    await fillMin(page, '25');
+    const unit2 = await ctxt(page, 'timer-unit');
+    await fillMin(page, '1');
+    await page.tap(tid('timer-view-ring'));
+    const s3 = await viewState();
+    const v3 = await page.evaluate(() => localStorage.getItem('routineTimerView'));
+
+    await check('29. 보기 스위치(진짜 터치 tap): 누르면 data-timer-view tiles·aria-pressed 바뀜·routineTimerView "tiles"·새로고침 뒤 유지·routineTimer 형식 {"minutes":1} 그대로·되돌리면 ring', () => {
+      const errs = [];
+      if (s0.view !== 'ring' || s0.ringP !== 'true') errs.push('처음 ' + JSON.stringify(s0));
+      if (s1.view !== 'tiles' || s1.tilesP !== 'true' || s1.ringP !== 'false') errs.push('탭 뒤 ' + JSON.stringify(s1));
+      if (v1 !== 'tiles') errs.push('저장 routineTimerView ' + v1);
+      if (t1 !== '{"minutes":1}') errs.push('routineTimer ' + t1);
+      if (s2.view !== 'tiles' || s2.tilesP !== 'true') errs.push('새로고침 뒤 ' + JSON.stringify(s2));
+      if (t2 !== '{"minutes":1}') errs.push('새로고침 뒤 routineTimer ' + t2);
+      if (s3.view !== 'ring' || s3.ringP !== 'true') errs.push('되돌린 뒤 ' + JSON.stringify(s3));
+      if (v3 !== 'ring') errs.push('되돌린 저장 ' + v3);
+      return errs.length ? errs.join('; ') : true;
+    });
+
+    await check('30. 타일 25칸(화면·덮개, data-tile-i 0..24 순서) · 단위 "1칸 = 2.4초"(1분) · 25분이면 "1칸 = 1분"', () => {
+      const errs = [];
+      const idx = tl.map((t) => t.i).join(',');
+      if (tl.length !== 25 || idx !== [...Array(25).keys()].join(',')) errs.push(`화면 칸 ${tl.length}개 [${idx}]`);
+      if (cl.length !== 25) errs.push('덮개 칸 ' + cl.length + '개');
+      if (unit1 !== '1칸 = 2.4초') errs.push('1분 단위 "' + unit1 + '"');
+      if (unit2 !== '1칸 = 1분') errs.push('25분 단위 "' + unit2 + '"');
+      return errs.length ? errs.join('; ') : true;
+    });
+    await ctx.close();
+  }
+
+  // ===== 흐름 13: 칸 채움 (타일 보기 고정) =====
+  {
+    const { ctx, page } = await openT(browser, { init: tilesInit });
+    await tab(page, 'tab-timer');
+    await fillMin(page, '1');
+    await page.click(tid('timer-start'));
+    // 1칸 = 60÷25 = 2.4초 → 3.6초면 칸0 full·칸1 절반(1.2/2.4)·칸2 empty (처음 5초로 적은 건 진행자 계산 실수: 5초는 2.08칸)
+    await runFor(page, 3600);
+    const t5 = await rootTiles(page);
+    await check('31. 1분 시작 후 3.6초: 칸0 full·칸1 filling·칸2 empty, 칸1 scaleY 0.5±0.1', () => {
+      const errs = [];
+      if (t5[0].st !== 'full') errs.push('칸0 ' + t5[0].st);
+      if (t5[1].st !== 'filling') errs.push('칸1 ' + t5[1].st);
+      if (t5[2].st !== 'empty') errs.push('칸2 ' + t5[2].st);
+      const y1 = scaleYOf(t5[1].y);
+      if (!(y1 > 0 && y1 < 1)) errs.push('칸1 scaleY ' + y1);
+      if (!(Math.abs(y1 - 0.5) <= 0.1)) errs.push(`칸1 scaleY ${y1} (기대 0.5±0.1)`);
+      return errs.length ? errs.join('; ') : true;
+    });
+
+    await runFor(page, 26400); // 3.6 + 26.4 = 30초
+    const t30 = await rootTiles(page);
+    await check('32. 30초: 칸 0~11 full · 칸 12 filling(scaleY 0.5±0.05) · 칸 13~24 empty', () => {
+      const errs = [];
+      for (let i = 0; i < 12; i++) if (t30[i].st !== 'full') errs.push(`칸${i} ${t30[i].st}`);
+      if (t30[12].st !== 'filling') errs.push('칸12 ' + t30[12].st);
+      const y12 = scaleYOf(t30[12].y);
+      if (!(Math.abs(y12 - 0.5) <= 0.05)) errs.push('칸12 scaleY ' + y12);
+      for (let i = 13; i < 25; i++) if (t30[i].st !== 'empty') errs.push(`칸${i} ${t30[i].st}`);
+      return errs.length ? errs.join('; ') : true;
+    });
+    // 진행자 추가(M9-R3): 칸이 실제로 받는 색이 지금 타이머 색인가 (중간 요소가 기본값으로 가리면 늘 파랑 — D 가 찾은 버그)
+    const tileCol = await page.evaluate(() => {
+      const root = document.getElementById('screen-timer');
+      const fill = document.querySelector('[data-testid="timer-tiles"] .timer-tile[data-tile-i="0"] .timer-fill') || document.querySelector('[data-testid="timer-tiles"] .timer-tile[data-tile-i="0"]');
+      return { want: root.getAttribute('data-timer-color'), got: getComputedStyle(fill).getPropertyValue('--timer-color').trim() };
+    });
+    await check('32b. 30초 칸이 받는 --timer-color = 화면 data-timer-color(rgb(197, 197, 62) 근처, 시작색 파랑 아님)', () => {
+      const norm = (c) => (c || '').replace(/\s+/g, '');
+      if (norm(tileCol.got) !== norm(tileCol.want)) return `칸 색 ${tileCol.got} ≠ 화면 색 ${tileCol.want}`;
+      if (/77,168,255/.test(norm(tileCol.got)) || /4da8ff/i.test(tileCol.got)) return '칸 색이 시작색(파랑) 그대로';
+      return true;
+    });
+    await ctx.close();
+  }
+
+  // ===== 흐름 14: 칸이 가득 찰 때 톡 (tile-pop) =====
+  {
+    const { ctx, page } = await openT(browser, { init: tilesInit });
+    await tab(page, 'tab-timer');
+    await fillMin(page, '1');
+    await page.click(tid('timer-start'));
+    await runFor(page, 2000); // 칸0 = 0.83 (아직 full 아님)
+    const a = await rootTiles(page);
+    await runFor(page, 450); // 2.45초: 칸0 은 2.4초에 full
+    const b = await rootTiles(page);
+    await check('33. 칸0 이 full 되는 순간 tile-pop 클래스·animation 생김 (대조: 아직 안 찬 칸5 는 tile-pop 없음)', () => {
+      const errs = [];
+      if (a[0].st === 'full') errs.push('2초에 벌써 full');
+      if (b[0].st !== 'full') errs.push('칸0 ' + b[0].st);
+      if (!b[0].pop) errs.push('tile-pop 클래스 없음');
+      if (b[0].anim !== 'tile-pop') errs.push('animation-name ' + b[0].anim);
+      if (b[5].pop || b[5].st === 'full') errs.push('대조: 칸5 가 벌써 찬 상태/pop');
+      return errs.length ? errs.join('; ') : true;
+    });
+    await ctx.close();
+  }
+
+  // ===== 흐름 15: 링 연속 움직임 =====
+  {
+    const { ctx, page } = await openT(browser);
+    await tab(page, 'tab-timer');
+    await fillMin(page, '1');
+    await page.click(tid('timer-start'));
+    const o0 = await offOf(page);
+    await runFor(page, 500);
+    const o1 = await offOf(page);
+    const txt = await val(page, 'timer-time');
+    await check('34. 링 dashoffset 이 초 사이(0.5초, 글자는 아직 "1:00")에도 변함 (1초마다만 갱신하면 실패)', () => {
+      const errs = [];
+      if (txt !== '1:00') errs.push('글자 ' + txt + ' (0.5초 안이어야 1:00)');
+      if (!(o1 > o0 + 0.05)) errs.push(`dashoffset ${o0.toFixed(3)}→${o1.toFixed(3)} 안 변함`);
+      return errs.length ? errs.join('; ') : true;
+    });
+    await ctx.close();
+  }
+
+  // ===== 흐름 16: 그림 루프(rAF) — 다른 탭·숨김에서 멈추고 돌아오면 재개 =====
+  {
+    const { ctx, page } = await openT(browser, { init: rafInit });
+    await tab(page, 'tab-timer');
+    await fillMin(page, '1');
+    await page.click(tid('timer-start'));
+    await rafReset(page);
+    await runFor(page, 1000);
+    const aRun = await rafCount(page);
+    await tab(page, 'tab-calendar');
+    await rafReset(page);
+    await runFor(page, 1000);
+    const aCal = await rafCount(page);
+    await tab(page, 'tab-timer');
+    await rafReset(page);
+    await runFor(page, 1000);
+    const aBack = await rafCount(page);
+    await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); document.dispatchEvent(new Event('visibilitychange')); });
+    await rafReset(page);
+    await runFor(page, 1000);
+    const aHid = await rafCount(page);
+    await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); document.dispatchEvent(new Event('visibilitychange')); });
+    await rafReset(page);
+    await runFor(page, 1000);
+    const aVis = await rafCount(page);
+    await check('35. rAF: 돌 때(1초) >0 · 다른 탭 ≤2 · 돌아오면 >0 · 숨김 ≤2 · 보이면 다시 >0 (window.requestAnimationFrame 호출 수)', () => {
+      const errs = [];
+      if (!(aRun > 0)) errs.push('돌 때 호출 ' + aRun);
+      if (!(aCal <= 2)) errs.push('캘린더 탭 호출 ' + aCal);
+      if (!(aBack > 0)) errs.push('돌아온 뒤 호출 ' + aBack);
+      if (!(aHid <= 2)) errs.push('숨김 호출 ' + aHid);
+      if (!(aVis > 0)) errs.push('보이게 된 뒤 호출 ' + aVis);
+      return errs.length ? errs.join('; ') : true;
+    });
+    await ctx.close();
+  }
+
+  // ===== 흐름 17: 끝 효과 (맥박·물결·축포 1번·덮개 위) =====
+  {
+    const { ctx, page } = await openT(browser);
+    await tab(page, 'tab-timer');
+    await fillMin(page, '1');
+    await wrapCel(page);
+    await page.click(tid('timer-start'));
+    await page.click(tid('timer-fs')); // 덮개를 열어 둔 채 끝나게
+    await runFor(page, 60000);
+    const fx = await page.evaluate(() => {
+      const cover = document.querySelector('[data-testid="timer-cover"]');
+      const cel = document.querySelectorAll('.celebrate[data-level="max"]');
+      const ms = (d) => (d.endsWith('ms') ? parseFloat(d) : parseFloat(d) * 1000);
+      const delays = (sel) => [0, 12, 24].map((i) => ms(getComputedStyle(document.querySelector(sel + ' .timer-tile[data-tile-i="' + i + '"]')).animationDelay));
+      return {
+        root: document.getElementById('screen-timer').getAttribute('data-timer-fx'),
+        cover: cover.getAttribute('data-timer-fx'),
+        wrap: getComputedStyle(document.querySelector('#screen-timer .timer-ring-wrap')).animationName,
+        d1: delays('[data-testid="timer-tiles"]'),
+        d2: delays('[data-testid="timer-cover-tiles"]'),
+        cel: window.__cel,
+        celN: cel.length,
+        celZ: cel.length ? getComputedStyle(cel[0]).zIndex : null,
+        coverZ: getComputedStyle(cover).zIndex,
+        coverOpen: !cover.hidden,
+      };
+    });
+    await check('36. 끝: data-timer-fx=done(화면·덮개) · 링 맥박+빛 animation "timer-pulse, timer-glow" · 칸 0·12·24 delay 0·360·720ms(화면·덮개) · 축포 정확히 1번 · 덮개 열림이면 축포 z-index 31 > 덮개 30', () => {
+      const errs = [];
+      if (fx.root !== 'done') errs.push('화면 fx ' + fx.root);
+      if (fx.cover !== 'done') errs.push('덮개 fx ' + fx.cover);
+      if (fx.wrap !== 'timer-pulse, timer-glow') errs.push('wrap animation ' + fx.wrap);
+      if (JSON.stringify(fx.d1) !== '[0,360,720]') errs.push('화면 칸 delay ' + JSON.stringify(fx.d1));
+      if (JSON.stringify(fx.d2) !== '[0,360,720]') errs.push('덮개 칸 delay ' + JSON.stringify(fx.d2));
+      if (fx.cel !== 1) errs.push('축포 호출 ' + fx.cel + '번');
+      if (fx.celN !== 1) errs.push('축포 요소 ' + fx.celN + '개');
+      if (!fx.coverOpen) errs.push('덮개가 닫힘');
+      if (fx.celZ !== '31') errs.push('축포 z-index ' + fx.celZ);
+      if (fx.coverZ !== '30') errs.push('덮개 z-index ' + fx.coverZ);
+      return errs.length ? errs.join('; ') : true;
+    });
+    await ctx.close();
+  }
+
+  // ===== 흐름 18: 소리 (가짜 AudioContext) =====
+  {
+    const { ctx, page } = await openT(browser, { init: audioInit });
+    const made0 = await page.evaluate(() => window.__ac.made);
+    await tab(page, 'tab-timer');
+    await fillMin(page, '1');
+    await page.click(tid('timer-start'));
+    const made1 = await page.evaluate(() => window.__ac.made);
+    await runFor(page, 60000);
+    const A = await page.evaluate(() => window.__ac);
+    await check('37. 소리 3음: 로드 직후 AudioContext 0개 · 시작 뒤 생김 · 끝에 오실레이터 3개(523.25·659.25·783.99Hz, 0.12초 간격, 각 0.6초 안에 끝) · gain 최고 0 초과 ≤0.15', () => {
+      const errs = [];
+      if (made0 !== 0) errs.push('로드 직후 ' + made0 + '개');
+      if (!(made1 >= 1)) errs.push('시작 뒤 ' + made1 + '개');
+      if (A.osc.length !== 3) errs.push('오실레이터 ' + A.osc.length + '개');
+      else {
+        const f = A.osc.map((o) => o.freq);
+        if (JSON.stringify(f) !== '[523.25,659.25,783.99]') errs.push('주파수 ' + JSON.stringify(f));
+        const s = A.osc.map((o) => o.start);
+        if (Math.abs(s[1] - s[0] - 0.12) > 1e-6 || Math.abs(s[2] - s[1] - 0.12) > 1e-6) errs.push('간격 ' + JSON.stringify(s));
+        A.osc.forEach((o, i) => { if (!(o.stop - o.start <= 0.6 + 1e-9)) errs.push(`${i}번 길이 ${(o.stop - o.start).toFixed(2)}`); });
+      }
+      if (!(A.gainMax > 0 && A.gainMax <= 0.15)) errs.push('gain 최고 ' + A.gainMax);
+      return errs.length ? errs.join('; ') : true;
+    });
+    await ctx.close();
+  }
+
+  // ===== 흐름 19: 소리 끔 (저장·새로고침 유지) =====
+  {
+    const { ctx, page } = await openT(browser, { init: audioInit });
+    await tab(page, 'tab-timer');
+    const p0 = await page.locator(tid('timer-sound')).getAttribute('aria-pressed');
+    await page.click(tid('timer-sound'));
+    const p1 = await page.locator(tid('timer-sound')).getAttribute('aria-pressed');
+    const sv1 = await page.evaluate(() => localStorage.getItem('routineTimerSound'));
+    const inner = await page.locator(tid('timer-sound')).innerText();
+    await fillMin(page, '1');
+    await page.click(tid('timer-start'));
+    await runFor(page, 60000);
+    const osc = (await page.evaluate(() => window.__ac.osc.length));
+    await page.reload();
+    await tab(page, 'tab-timer');
+    const p2 = await page.locator(tid('timer-sound')).getAttribute('aria-pressed');
+    const sv2 = await page.evaluate(() => localStorage.getItem('routineTimerSound'));
+    await check('38. 소리 끔: 처음 aria-pressed true → 누르면 false · routineTimerSound "off" · 끝에도 오실레이터 0 · 글자 "" · 새로고침 뒤 유지', () => {
+      const errs = [];
+      if (p0 !== 'true') errs.push('처음 ' + p0);
+      if (p1 !== 'false') errs.push('누른 뒤 ' + p1);
+      if (sv1 !== 'off') errs.push('저장 ' + sv1);
+      if (inner !== '') errs.push('글자 "' + inner + '"');
+      if (osc !== 0) errs.push('끝난 뒤 오실레이터 ' + osc + '개');
+      if (p2 !== 'false' || sv2 !== 'off') errs.push(`새로고침 뒤 ${p2}/${sv2}`);
+      return errs.length ? errs.join('; ') : true;
+    });
+    await ctx.close();
+  }
+
+  // ===== 흐름 20: 움직임 줄이기 =====
+  {
+    const { ctx, page } = await openT(browser, { reduce: true, init: rafInit });
+    await tab(page, 'tab-timer');
+    await fillMin(page, '1');
+    await wrapCel(page);
+    await page.click(tid('timer-start'));
+    await rafReset(page);
+    await runFor(page, 1000);
+    const rafRun = await rafCount(page);
+    await runFor(page, 59000);
+    const an = await page.evaluate(() => ({
+      fx: document.getElementById('screen-timer').getAttribute('data-timer-fx'),
+      wrap: getComputedStyle(document.querySelector('#screen-timer .timer-ring-wrap')).animationName,
+      svg: getComputedStyle(document.querySelector('#screen-timer .timer-svg')).animationName,
+      tile: getComputedStyle(document.querySelector('[data-testid="timer-tiles"] .timer-tile')).animationName,
+      cel: window.__cel,
+    }));
+    await check('39. 움직임 줄이기: 돌 때 rAF 호출 0 · 끝나도 맥박·물결 animation none · 축포 0번 (끝 표시 done 은 그대로)', () => {
+      const errs = [];
+      if (rafRun !== 0) errs.push('rAF 호출 ' + rafRun);
+      if (an.fx !== 'done') errs.push('fx ' + an.fx);
+      if (an.wrap !== 'none') errs.push('wrap ' + an.wrap);
+      if (an.svg !== 'none') errs.push('링 svg ' + an.svg);
+      if (an.tile !== 'none') errs.push('칸 ' + an.tile);
+      if (an.cel !== 0) errs.push('축포 ' + an.cel + '번');
+      return errs.length ? errs.join('; ') : true;
+    });
+    await ctx.close();
+  }
+
+  // ===== 흐름 21: 덮개에서 두 보기 =====
+  {
+    const { ctx, page } = await openT(browser);
+    await tab(page, 'tab-timer');
+    await fillMin(page, '1');
+    await page.click(tid('timer-start'));
+    await runFor(page, 30000);
+    await page.click(tid('timer-fs'));
+    const ringMode = { ring: await vis(page, 'timer-cover-ring'), tiles: await vis(page, 'timer-cover-tiles') };
+    await page.click(tid('timer-cover-close'));
+    await page.click(tid('timer-view-tiles'));
+    await page.click(tid('timer-fs'));
+    const tilesMode = { ring: await vis(page, 'timer-cover-ring'), tiles: await vis(page, 'timer-cover-tiles') };
+    const look = await page.evaluate(() => {
+      const full = document.querySelector('[data-testid="timer-cover-tiles"] .timer-tile[data-tile="full"] .timer-fill');
+      return {
+        bar: full ? getComputedStyle(full).backgroundImage : null,
+        bg: getComputedStyle(document.getElementById('timer-cover')).backgroundColor,
+      };
+    });
+    await check('40. 덮개: 링 보기면 링만·타일 보기면 타일만 보임 · 찬 칸 색이 검은 배경과 다름(rgb(197, 197, 62) 포함, 덮개 배경 rgb(0, 0, 0))', () => {
+      const errs = [];
+      if (!(ringMode.ring === true && ringMode.tiles === false)) errs.push('링 보기 ' + JSON.stringify(ringMode));
+      if (!(tilesMode.tiles === true && tilesMode.ring === false)) errs.push('타일 보기 ' + JSON.stringify(tilesMode));
+      if (look.bg !== 'rgb(0, 0, 0)') errs.push('덮개 배경 ' + look.bg);
+      if (!look.bar || !/rgb\(\s*197,\s*197,\s*62\s*\)/.test(look.bar)) errs.push('찬 칸 색 ' + look.bar);
+      return errs.length ? errs.join('; ') : true;
+    });
+    await ctx.close();
+  }
+
+  // ===== 디자인 규칙 (정적 검사 + 대조) =====
+  // 새 기준: transition·@keyframes 의 속성은 transform·opacity 만. box-shadow·gradient·animation 자체는 허용.
+  await check('24. timer.css: transition·@keyframes 속성은 transform·opacity 만 (대조 포함)', () => {
+    const bad = (css) => {
+      const out = [];
+      for (const m of css.matchAll(/(?:^|[;{\s])(transition(?:-property)?)\s*:\s*([^;}]*)/g)) {
+        for (const part of m[2].split(',')) {
+          const p = part.trim().split(/\s+/)[0] || '';
+          if (!['transform', 'opacity', 'none'].includes(p)) out.push(m[1] + ' ' + p);
+        }
+      }
+      const kf = /@keyframes\s+[\w-]+\s*\{/g;
+      let m;
+      while ((m = kf.exec(css))) {
+        let depth = 1;
+        let i = kf.lastIndex;
+        while (depth > 0 && i < css.length) { if (css[i] === '{') depth++; else if (css[i] === '}') depth--; i++; }
+        const body = css.slice(kf.lastIndex, i - 1);
+        for (const pm of body.matchAll(/([a-z-]+)\s*:/g)) if (!['transform', 'opacity'].includes(pm[1])) out.push('@keyframes ' + pm[1]);
+      }
+      return out;
+    };
+    if (bad('.x{transition: width 1s}').length !== 1) return '대조 실패: transition width 를 못 잡음';
+    if (bad('@keyframes k{0%{width:0}100%{width:9px}}').length === 0) return '대조 실패: keyframes width 를 못 잡음';
+    if (bad('.x{transition: transform 1s, opacity 1s}@keyframes k{0%{transform:scale(1)}100%{opacity:0}}').length !== 0) return '대조 실패: 허용 값이 막힘';
+    if (bad('.x{transition: none}').length !== 0) return '대조 실패: transition none 이 막힘';
     const css = fs.readFileSync(path.join(HERE, '..', 'css', 'timer.css'), 'utf8');
     if (css.length < 200) return 'timer.css 가 비정상적으로 짧음';
-    const hits = strip(css).match(new RegExp(re.source, 'g')) || [];
-    return hits.length ? '금지 문자열 ' + hits.join(',') : true;
+    const hits = bad(css);
+    return hits.length ? '금지 속성 ' + hits.join(', ') : true;
   });
 });
