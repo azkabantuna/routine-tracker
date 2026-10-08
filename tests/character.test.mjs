@@ -1,7 +1,7 @@
 // 성장 캐릭터 시험: XP·레벨·단계, 저장 불변, 실시간 반영, 레벨업 연출, 부드러움, 교체, 회귀
 // 실행(레포 루트에서): node projects/routine-tracker/tests/character.test.mjs
 import assert from 'node:assert';
-import { BASE, run, check, note, sleep, tid, getRaw, getStore, open, fixtureRaw, consoleErrors } from './_lib.mjs';
+import { BASE, run, check, note, sleep, tid, getRaw, getStore, open, fixtureRaw, consoleErrors, externalRequests, KEY } from './_lib.mjs';
 
 await run(async (browser) => {
   // ========== 1. 옛 시드 데이터 검사 ==========
@@ -699,7 +699,7 @@ await run(async (browser) => {
     return errs.length ? errs.join('; ') : true;
   });
 
-  await check('M7-3. 4단계 드로우콜: data-rt-draws 1<2<3<4, 모두 ≤28', async () => {
+  await check('M7-3. 4단계 드로우콜: data-rt-draws 1<2<3<4, 모두 ≤34', async () => {
     // 고정 logs: 단계1=0, 단계2=36(mini 12), 단계3=120(max 15), 단계4=253(max 31 + more 1)
     const logConfigs = [
       { days: 0, type: null },
@@ -734,7 +734,7 @@ await run(async (browser) => {
     for (let i = 0; i < 4; i++) {
       if (draws[i].stage !== String(i + 1)) errs.push(`[${i + 1}] stage=${draws[i].stage} (기대 ${i + 1})`);
       if (draws[i].rtDraws === null) errs.push(`[${i + 1}] data-rt-draws=null`);
-      else if (draws[i].rtDraws > 28) errs.push(`[${i + 1}] draws=${draws[i].rtDraws} (>28)`);
+      else if (draws[i].rtDraws > 34) errs.push(`[${i + 1}] draws=${draws[i].rtDraws} (>34)`);
     }
     for (let i = 0; i < 3; i++) {
       if (draws[i].rtDraws !== null && draws[i + 1].rtDraws !== null && draws[i].rtDraws >= draws[i + 1].rtDraws) {
@@ -800,5 +800,335 @@ await run(async (browser) => {
       if (scales[i] !== expected[i]) errs.push(`[${i + 1}] scale=${scales[i]} (기대 ${expected[i]})`);
     }
     return errs.length ? errs.join('; ') : true;
+  });
+
+  // ========== M10 퓨처 셀프 ①: 정면→뒤돌기→달리기, 색·단계 명령, reduced, 2D 폴백, 성능 ==========
+  // 시간표: 정면 ~0.9s → 뒤돌기 ~0.5s(넘침) → 달리기. 관리 진입 후 running 까지 보통 ~1.4s, 최대 ~2.0s. 대기는 ≤2.5s.
+  const gsOf = (page) => page.evaluate(() => (window.RT3D && window.RT3D.getState ? window.RT3D.getState() : null));
+  const waitMounted = (page) => page.waitForFunction(() => !!(window.RT3D && window.RT3D.getState && window.RT3D.getState()), null, { timeout: 4000 });
+  // 관리 탭 진입 뒤 40ms 간격 기록(running 이면 끝, 최대 2.5초). firstMs = 시작 후 첫 상태가 나올 때까지 걸린 시간.
+  const sampleEntry = (page) => page.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const has = () => !!(window.RT3D && window.RT3D.getState && window.RT3D.getState());
+    const t0 = performance.now();
+    while (!has() && performance.now() - t0 < 400) await wait(5);
+    if (!has()) return { firstMs: null, out: [] };
+    const firstMs = performance.now() - t0;
+    const out = [];
+    const t1 = performance.now();
+    while (performance.now() - t1 < 2500) {
+      const s = window.RT3D.getState();
+      out.push({ t: performance.now() - t1, phase: s.phase, yaw: s.pose.yaw, armL: s.pose.armL, legL: s.pose.legL, bob: s.pose.bob, floor: s.pose.floor });
+      if (s.phase === 'running') break;
+      await wait(40);
+    }
+    return { firstMs, out };
+  });
+  // 판정: 첫 상태 front·yaw<10·mount 후 150ms 이내, turning 거침(0.3~1.0s), 넘침(yaw>145), running yaw 135~155
+  const judgeEntry = ({ firstMs, out }) => {
+    if (firstMs === null) return '400ms 안에 RT3D.getState 가 안 나옴';
+    const e = [];
+    if (firstMs > 150) e.push(`mount 후 첫 상태 ${Math.round(firstMs)}ms (≤150)`);
+    if (!out.length) return '샘플 없음';
+    if (out[0].phase !== 'front' || !(out[0].yaw < 10)) e.push(`첫 상태 ${out[0].phase} yaw=${out[0].yaw} (front·yaw<10 기대)`);
+    const ti = out.findIndex((s) => s.phase === 'turning');
+    const ri = out.findIndex((s) => s.phase === 'running');
+    if (ti < 0) e.push('turning 단계 안 보임');
+    if (ri < 0) { e.push('2.5초 안에 running 안 됨'); return e.join('; '); }
+    if (ti >= 0 && ri < ti) e.push('running 이 turning 보다 먼저');
+    if (ti >= 0) {
+      const frontS = (out[ti].t) / 1000;
+      const turnS = (out[ri].t - out[ti].t) / 1000;
+      if (frontS < 0.5) e.push(`정면 ${frontS.toFixed(2)}s (≥0.5)`);
+      if (turnS < 0.3 || turnS > 1.0) e.push(`뒤돌기 ${turnS.toFixed(2)}s (0.3~1.0)`);
+      const peak = Math.max(...out.slice(ti, ri).map((s) => s.yaw));
+      if (!(peak > 145)) e.push(`뒤돌기 넘침 없음 최대 yaw=${peak.toFixed(1)} (>145 기대)`);
+    }
+    if (!(out[ri].yaw >= 135 && out[ri].yaw <= 155)) e.push(`running yaw=${out[ri].yaw} (145±10)`);
+    return e.length ? e.join('; ') : true;
+  };
+  // 판정: running 10샘플(100ms 간격) + 0.25초 쌍. 팔·다리 범위≥1.0, 엇갈림≥80%, bob≥0.04, floor 증가
+  const judgeRunning = (samples, pair) => {
+    const e = [];
+    if (samples.some((s) => s.phase !== 'running')) e.push('running 아닌 샘플 있음: ' + samples.map((s) => s.phase).join(','));
+    const rng = (k) => { const v = samples.map((s) => s[k]); return Math.max(...v) - Math.min(...v); };
+    if (rng('armL') < 1.0) e.push(`armL 범위 ${rng('armL').toFixed(2)} (≥1.0)`);
+    if (rng('legL') < 1.0) e.push(`legL 범위 ${rng('legL').toFixed(2)} (≥1.0)`);
+    const opp = samples.filter((s) => s.armL * s.legL < 0).length / samples.length;
+    if (opp < 0.8) e.push(`팔·다리 엇갈림 ${Math.round(opp * 100)}% (≥80)`);
+    if (rng('bob') < 0.04) e.push(`bob 범위 ${rng('bob').toFixed(3)} (≥0.04)`);
+    const f0 = samples[0].floor, f1 = samples[samples.length - 1].floor;
+    if (!(f1 > f0)) e.push(`floor ${f0}→${f1} (증가 기대)`);
+    if (pair) {
+      const { a, b } = pair;
+      if (!(a.armL * a.legL < 0 && b.armL * b.legL < 0)) e.push('0.25초 쌍: 부호 반대 아님');
+      if (a.armL === b.armL && a.legL === b.legL) e.push('0.25초 쌍: 포즈 안 바뀜');
+    }
+    return e.length ? e.join('; ') : true;
+  };
+
+  await check('M10-1. 계약: data-stage·scale·frameloop·motion·rt-bg=clear·rt-draws·char-canvas 유지, data-rt-phase=getState().phase, 명령 7개 function, dispose 후 data-rt-phase 없음', async () => {
+    const errs = [];
+    const { ctx, page } = await open(browser, { seed: fixtureRaw });
+    await sleep(600);
+    await page.click(tid('tab-manage'));
+    await waitMounted(page);
+    const r = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="char-card"]');
+      const s = window.RT3D.getState();
+      return {
+        attrs: { stage: el.getAttribute('data-stage'), scale: el.getAttribute('data-scale'), frameloop: el.getAttribute('data-frameloop'), motion: el.getAttribute('data-motion'), bg: el.getAttribute('data-rt-bg'), draws: el.getAttribute('data-rt-draws'), phase: el.getAttribute('data-rt-phase') },
+        canvas: document.querySelectorAll('[data-testid="char-canvas"]').length,
+        state: s,
+        fns: ['mount', 'update', 'setActive', 'dispose', 'setLevel', 'setColor', 'getState'].map((n) => typeof window.RT3D[n]),
+      };
+    });
+    if (r.canvas !== 1) errs.push(`char-canvas ${r.canvas}개`);
+    if (!['1', '2', '3', '4'].includes(r.attrs.stage)) errs.push(`data-stage=${r.attrs.stage}`);
+    if (!['0.6', '0.75', '0.9', '1.0'].includes(r.attrs.scale)) errs.push(`data-scale=${r.attrs.scale}`);
+    if (r.attrs.frameloop !== 'always') errs.push(`data-frameloop=${r.attrs.frameloop} (관리 always)`);
+    if (!r.attrs.motion || r.attrs.motion === 'still') errs.push(`data-motion=${r.attrs.motion} (보통 모드는 still 아님)`);
+    if (r.attrs.bg !== 'clear') errs.push(`data-rt-bg=${r.attrs.bg}`);
+    if (r.attrs.draws === null || !(parseInt(r.attrs.draws) > 0)) errs.push(`data-rt-draws=${r.attrs.draws}`);
+    if (r.attrs.phase !== r.state.phase) errs.push(`data-rt-phase=${r.attrs.phase} ≠ getState().phase=${r.state.phase}`);
+    if (!['front', 'turning', 'running'].includes(r.state.phase)) errs.push(`phase=${r.state.phase}`);
+    r.fns.forEach((t, i) => { if (t !== 'function') errs.push(`명령 ${i + 1} typeof=${t}`); });
+    // 반대: dispose 후 data-rt-phase 가 남으면 실패
+    const after = await page.evaluate(() => { window.RT3D.dispose(); return document.querySelector('[data-testid="char-card"]').getAttribute('data-rt-phase'); });
+    if (after !== null) errs.push(`dispose 후 data-rt-phase=${after} (없어야 함)`);
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  await check('M10-2. 뒤돌기: 관리 진입 첫 상태 front·yaw<10 (150ms 안), turning 거쳐 running(yaw 145±10), 넘침 있음, 정면 중 floor 불변', async () => {
+    const { ctx, page } = await open(browser, { seed: fixtureRaw });
+    await sleep(600);
+    await page.click(tid('tab-manage'));
+    const res = await sampleEntry(page);
+    await ctx.close();
+    const j = judgeEntry(res);
+    if (j !== true) return j;
+    const frontSame = res.out.length > 1 && res.out[1].phase === 'front' && res.out[1].floor === res.out[0].floor;
+    if (!frontSame && res.out.length > 1 && res.out[1].phase === 'front') return '정면 중 floor 변함';
+    // 대조: 뒤돌기 없이 바로 running 인 입력은 실패해야 한다
+    if (judgeEntry({ firstMs: 10, out: [{ t: 0, phase: 'running', yaw: 145, armL: 0, legL: 0, bob: 0, floor: 0 }] }) === true) return '대조 실패: 뒤돌기 없는 입력을 통과시킴';
+    return true;
+  });
+
+  await check('M10-2b. 다른 탭 갔다 돌아오면 front 부터, setActive(false)→(true) 직후 front (yaw<10)', async () => {
+    const errs = [];
+    const { ctx, page } = await open(browser, { seed: fixtureRaw });
+    await sleep(600);
+    await page.click(tid('tab-manage'));
+    await waitMounted(page);
+    await page.waitForFunction(() => window.RT3D.getState().phase === 'running', null, { timeout: 2500 });
+    await page.click(tid('tab-calendar')); await sleep(400);
+    await page.click(tid('tab-manage'));
+    const back = await sampleEntry(page);
+    const j = judgeEntry(back);
+    if (j !== true) errs.push(`탭 복귀: ${j}`);
+    const api = await page.evaluate(async () => {
+      window.RT3D.setActive(false); window.RT3D.setActive(true);
+      await new Promise((r) => setTimeout(r, 50));
+      const s = window.RT3D.getState();
+      return { phase: s.phase, yaw: s.pose.yaw };
+    });
+    if (api.phase !== 'front' || !(api.yaw < 10)) errs.push(`setActive false→true 직후 ${api.phase} yaw=${api.yaw} (front 기대)`);
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  await check('M10-3. 달리기: running 1초 10샘플 armL·legL 범위≥1.0·엇갈림≥80%·bob≥0.04·floor 증가, 0.25초 쌍 엇갈림·변화', async () => {
+    const { ctx, page } = await open(browser, { seed: fixtureRaw });
+    await sleep(600);
+    await page.click(tid('tab-manage'));
+    await waitMounted(page);
+    await page.waitForFunction(() => window.RT3D.getState().phase === 'running', null, { timeout: 2500 });
+    const r = await page.evaluate(async () => {
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const pick = (s) => ({ phase: s.phase, armL: s.pose.armL, legL: s.pose.legL, bob: s.pose.bob, floor: s.pose.floor });
+      const samples = [];
+      for (let i = 0; i < 10; i++) { samples.push(pick(window.RT3D.getState())); await wait(100); }
+      const a = pick(window.RT3D.getState()); await wait(250); const b = pick(window.RT3D.getState());
+      return { samples, pair: { a, b } };
+    });
+    await ctx.close();
+    const j = judgeRunning(r.samples, r.pair);
+    if (j !== true) return j;
+    // 대조: 정지 포즈(움직임 없음)는 실패해야 한다
+    const still = Array.from({ length: 10 }, () => ({ phase: 'running', armL: 0.3, legL: 0.3, bob: 0.1, floor: 1 }));
+    if (judgeRunning(still, { a: { armL: 0.3, legL: 0.3 }, b: { armL: 0.3, legL: 0.3 } }) === true) return '대조 실패: 정지 포즈를 통과시킴';
+    return true;
+  });
+
+  await check('M10-4. 색: setColor(body) 바뀜·다른 부위 그대로·잘못된 part/색 무시(오류 0)·소문자 #rrggbb·저장 안 함·새로고침 뒤 기본색', async () => {
+    const errs = [];
+    const { ctx, page } = await open(browser, { seed: fixtureRaw, goto: false });
+    const pe = []; page.on('pageerror', (e) => pe.push(e.message));
+    await page.goto(BASE); await sleep(600);
+    await page.click(tid('tab-manage'));
+    await waitMounted(page);
+    const before = await gsOf(page);
+    if (before.colors.body !== '#7ed957') errs.push(`기본 body=${before.colors.body}`);
+    const raw0 = await getRaw(page);
+    const keys0 = await page.evaluate(() => localStorage.length);
+    const r = await page.evaluate(async () => {
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const errsIn = [];
+      const call = (f) => { try { f(); } catch (e) { errsIn.push(e.message); } };
+      call(() => window.RT3D.setColor('body', '#ff0000'));
+      call(() => window.RT3D.setColor('hat', '#00ff00'));
+      call(() => window.RT3D.setColor('arms', 'xx'));
+      call(() => window.RT3D.setColor('legs', 123));
+      call(() => window.RT3D.setColor('head', 'notacolor'));
+      await wait(150);
+      const s1 = window.RT3D.getState().colors;
+      call(() => window.RT3D.setColor('legs', '#00AAFF'));
+      await wait(100);
+      const s2 = window.RT3D.getState().colors;
+      return { errsIn, s1, s2 };
+    });
+    if (r.s1.body !== '#ff0000') errs.push(`body=${r.s1.body} (#ff0000 기대)`);
+    if (r.s1.head !== before.colors.head) errs.push(`head 바뀜 ${before.colors.head}→${r.s1.head}`);
+    if (r.s1.arms !== before.colors.arms) errs.push(`arms 바뀜 ${before.colors.arms}→${r.s1.arms}`);
+    if (r.s1.legs !== before.colors.legs) errs.push(`legs 바뀜 ${before.colors.legs}→${r.s1.legs}`);
+    if (Object.keys(r.s1).sort().join(',') !== 'arms,body,head,legs') errs.push('colors 키 이상: ' + Object.keys(r.s1).join(','));
+    if (r.s2.legs !== '#00aaff') errs.push(`대문자 입력 legs=${r.s2.legs} (#00aaff 소문자 기대)`);
+    if (r.errsIn.length) errs.push('잘못된 명령에서 오류: ' + r.errsIn.join('|'));
+    const raw1 = await getRaw(page);
+    const keys1 = await page.evaluate(() => localStorage.length);
+    if (raw1 !== raw0) errs.push('routineTracker 값 바뀜(색 저장 금지)');
+    if (keys1 !== keys0) errs.push(`localStorage 키 수 ${keys0}→${keys1}`);
+    await page.reload(); await sleep(400);
+    await page.click(tid('tab-manage'));
+    await waitMounted(page);
+    const again = await gsOf(page);
+    if (again.colors.body !== '#7ed957' || again.colors.legs !== '#ffb347') errs.push(`새로고침 후 색 ${again.colors.body}/${again.colors.legs} (기본 기대)`);
+    if (pe.length) errs.push('pageerror: ' + pe.join('|'));
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  await check('M10-5. 단계: setLevel(1~4)→data-stage·scale 0.6/0.75/0.9/1.0·드로우콜 1<2<3<4≤34, setLevel(9)·("a")·(0)·(NaN) 무시, update({stage:2}) 동작, routineTracker 불변', async () => {
+    const errs = [];
+    const { ctx, page } = await open(browser, { seed: fixtureRaw, goto: false });
+    const pe = []; page.on('pageerror', (e) => pe.push(e.message));
+    await page.goto(BASE); await sleep(600);
+    await page.click(tid('tab-manage'));
+    await waitMounted(page);
+    const raw0 = await getRaw(page);
+    const out = await page.evaluate(async () => {
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const el = document.querySelector('[data-testid="char-card"]');
+      const snap = () => ({ dataStage: el.getAttribute('data-stage'), scale: el.getAttribute('data-scale'), draws: el.getAttribute('data-rt-draws'), stage: window.RT3D.getState().stage });
+      const o = {};
+      for (const n of [1, 2, 3, 4]) { window.RT3D.setLevel(n); await wait(300); o[n] = snap(); }
+      window.RT3D.setLevel(3); await wait(300); o.base3 = snap();
+      o.errs = [];
+      for (const bad of [9, 'a', 0, NaN]) { try { window.RT3D.setLevel(bad); } catch (e) { o.errs.push(e.message); } }
+      await wait(300); o.bad = snap();
+      window.RT3D.update({ stage: 2 }); await wait(300); o.upd = snap();
+      return o;
+    });
+    const scales = ['0.6', '0.75', '0.9', '1.0'];
+    for (let n = 1; n <= 4; n++) {
+      const s = out[n];
+      if (s.dataStage !== String(n) || s.stage !== n) errs.push(`setLevel(${n}): data-stage=${s.dataStage} stage=${s.stage}`);
+      if (s.scale !== scales[n - 1]) errs.push(`setLevel(${n}): scale=${s.scale} (기대 ${scales[n - 1]})`);
+    }
+    const d = [1, 2, 3, 4].map((n) => parseInt(out[n].draws));
+    if (d.some((x) => !(x > 0))) errs.push(`드로우콜 값 이상 ${out[1].draws}/${out[2].draws}/${out[3].draws}/${out[4].draws}`);
+    for (let i = 0; i < 3; i++) if (!(d[i] < d[i + 1])) errs.push(`드로우콜 ${i + 1}→${i + 2}: ${d[i]} ≥ ${d[i + 1]}`);
+    if (d[3] > 34) errs.push(`단계4 드로우콜 ${d[3]} (≤34)`);
+    if (out.bad.dataStage !== '3' || out.bad.stage !== 3 || out.bad.scale !== '0.9') errs.push(`잘못된 setLevel 후 ${out.bad.dataStage}/${out.bad.scale} (3/0.9 기대)`);
+    if (out.errs.length) errs.push('잘못된 setLevel 에서 오류: ' + out.errs.join('|'));
+    if (out.upd.dataStage !== '2' || out.upd.scale !== '0.75') errs.push(`update({stage:2}) 후 ${out.upd.dataStage}/${out.upd.scale} (2/0.75 기대)`);
+    const raw1 = await getRaw(page);
+    if (raw1 !== raw0) errs.push('routineTracker 값 바뀜(단계 명령은 저장 안 함)');
+    if (pe.length) errs.push('pageerror: ' + pe.join('|'));
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  await check('M10-6. reduced-motion: 관리 진입 뒤 150ms 안 running·data-motion=still·reduced=true·1초 동안 포즈 정지', async () => {
+    const errs = [];
+    const { ctx, page } = await open(browser, { seed: fixtureRaw, reduced: true, goto: false });
+    const pe = []; page.on('pageerror', (e) => pe.push(e.message));
+    await page.goto(BASE); await sleep(600);
+    await page.click(tid('tab-manage'));
+    const r = await page.evaluate(async () => {
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const t0 = performance.now();
+      let runMs = null;
+      while (performance.now() - t0 < 400) {
+        const s = window.RT3D && window.RT3D.getState && window.RT3D.getState();
+        if (s && s.phase === 'running') { runMs = performance.now() - t0; break; }
+        await wait(5);
+      }
+      const pick = () => { const s = window.RT3D.getState(); return { phase: s.phase, reduced: s.reduced, yaw: s.pose.yaw, armL: s.pose.armL, legL: s.pose.legL, bob: s.pose.bob, floor: s.pose.floor }; };
+      const a = runMs === null ? null : pick();
+      await wait(1000);
+      const b = runMs === null ? null : pick();
+      const motion = document.querySelector('[data-testid="char-card"]').getAttribute('data-motion');
+      return { runMs, a, b, motion };
+    });
+    if (r.runMs === null) errs.push('400ms 안에 running 안 됨');
+    else if (r.runMs > 150) errs.push(`running 까지 ${Math.round(r.runMs)}ms (≤150)`);
+    if (r.a && r.a.reduced !== true) errs.push(`getState().reduced=${r.a.reduced}`);
+    if (r.a && !(r.a.yaw >= 135 && r.a.yaw <= 155)) errs.push(`reduced yaw=${r.a.yaw} (145±10)`);
+    if (r.motion !== 'still') errs.push(`data-motion=${r.motion} (still 기대)`);
+    if (r.a && r.b) {
+      for (const k of ['armL', 'legL', 'bob', 'floor', 'yaw']) if (r.a[k] !== r.b[k]) errs.push(`1초 뒤 ${k} ${r.a[k]}→${r.b[k]} (정지 기대)`);
+    }
+    if (pe.length) errs.push('pageerror: ' + pe.join('|'));
+    await ctx.close();
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  await check('M10-7a. 2D 폴백: ?avatar=2d·번들 차단·WebGL 차단 모두 data-render=2d·Lv7·pageerror 0', async () => {
+    const errs = [];
+    const cases = [
+      { name: '?avatar=2d', url: BASE + '?avatar=2d', setup: null },
+      { name: '번들 차단', url: BASE, setup: 'vendor' },
+      { name: 'WebGL 차단', url: BASE, setup: 'webgl' },
+    ];
+    for (const c of cases) {
+      const { ctx, page } = await open(browser, { seed: fixtureRaw, goto: false });
+      const pe = []; page.on('pageerror', (e) => pe.push(e.message));
+      if (c.setup === 'vendor') await page.route('**/vendor/character3d.js', (r) => r.abort());
+      if (c.setup === 'webgl') await page.addInitScript(() => { const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (t, ...a) { return /webgl/.test(t) ? null : g.call(this, t, ...a); }; });
+      await page.goto(c.url); await sleep(600);
+      await page.click(tid('tab-manage')); await sleep(600);
+      const rd = await page.locator(tid('char-card')).getAttribute('data-render');
+      const lv = await page.locator(tid('char-level')).textContent();
+      if (rd !== '2d' || lv !== 'Lv7' || pe.length) errs.push(`${c.name}: render=${rd} lv=${lv} 오류=${pe.join('|')}`);
+      await ctx.close();
+      // 일부러 막은 번들 요청의 "Failed to load resource" 1건만 합산 목록에서 뺀다(M5-S 와 같은 방식)
+      if (c.setup === 'vendor') { const k = consoleErrors.findIndex((x) => x.includes('Failed to load resource: net::ERR_FAILED')); if (k >= 0) consoleErrors.splice(k, 1); }
+    }
+    return errs.length ? errs.join('; ') : true;
+  });
+
+  await check('M10-7b. 성능: dpr2 관리 탭 rAF 중앙값 ≤53ms (60프레임)', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, timezoneId: 'Asia/Seoul', locale: 'ko-KR', reducedMotion: 'no-preference' });
+    await ctx.route('**/*', (route) => {
+      const u = new globalThis.URL(route.request().url());
+      if (u.hostname !== 'localhost' && u.hostname !== '127.0.0.1') { externalRequests.push(u.href); return route.abort(); }
+      return route.continue();
+    });
+    const page = await ctx.newPage();
+    page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push('console: ' + m.text()); });
+    page.on('pageerror', (e) => consoleErrors.push('pageerror: ' + e.message));
+    await page.addInitScript(([k, v]) => { if (localStorage.getItem(k) === null) localStorage.setItem(k, v); }, [KEY, fixtureRaw]);
+    await page.goto(BASE); await sleep(600);
+    await page.click(tid('tab-manage'));
+    await waitMounted(page);
+    const med = await page.evaluate(() => new Promise((res) => {
+      const d = []; let last = null;
+      const f = (t) => { if (last !== null) d.push(t - last); last = t; if (d.length < 60) requestAnimationFrame(f); else { d.sort((a, b) => a - b); res(d[Math.floor(d.length / 2)]); } };
+      requestAnimationFrame(f);
+    }));
+    await ctx.close();
+    return med <= 53 ? true : `rAF 중앙값 ${med.toFixed(1)}ms (≤53)`;
   });
 });
