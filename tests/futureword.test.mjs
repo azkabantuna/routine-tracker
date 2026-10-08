@@ -130,6 +130,8 @@ await run(async (browser) => {
     await sleep(300);
     const stage = await attrOf(page, CARD, 'data-stage');
     const draws = parseInt(await attrOf(page, CARD, 'data-rt-draws'), 10);
+    // 진단(M12 진행자): 전체 실행 중 1회 draws 가 사라짐(장면이 해체됨) — 다시 나오면 원인을 보이게 render 모드·quality 를 같이 적는다
+    const diag = Number.isNaN(draws) ? await page.evaluate(() => { const c = document.querySelector('[data-testid="char-card"]'); return { render: c && c.getAttribute('data-render'), q: c && c.getAttribute('data-rt-quality'), canvas: !!document.querySelector('[data-testid="char-canvas"]') }; }) : null;
     const spin = await page.evaluate(async () => {
       const r0 = window.RT3D.getState().tunnel.rot; const t0 = performance.now();
       await new Promise((r) => setTimeout(r, 1000));
@@ -142,7 +144,7 @@ await run(async (browser) => {
     const rate = Math.abs(angDiff(spin.r0, spin.r1)) / spin.dt;
     const j = judgeSpin(rate);
     if (j !== true) errs.push(j);
-    if (!(draws <= 39)) errs.push(`stage4 드로우콜 ${draws} (≤39)`);
+    if (!(draws <= 39)) errs.push(`stage4 드로우콜 ${draws} (≤39)` + (diag ? ` 진단 ${JSON.stringify(diag)}` : ''));
     if (!(draws - M10_DRAWS_STAGE4 >= 1 && draws - M10_DRAWS_STAGE4 <= 5)) errs.push(`M10 대비 증가 ${draws - M10_DRAWS_STAGE4} (1~5 기대)`);
     // 대조: 0 과 1.2rad/s 는 실패해야 한다
     if (judgeSpin(0) === true || judgeSpin(1.2) === true) errs.push('대조 실패: 0 또는 1.2rad/s 를 통과시킴');
