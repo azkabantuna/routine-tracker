@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT = path.resolve(HERE, '..');
-const FEATURES = ['store', 'routines', 'emoji', 'effects', 'motion', 'layout', 'calendar', 'character', 'timer'];
+const FEATURES = ['store', 'routines', 'emoji', 'effects', 'motion', 'layout', 'calendar', 'character', 'futureword', 'timer'];
 
 // ★ 바뀐 파일 → 돌릴 기능 (표 하나뿐). 표에 없는 파일은 안전하게 전부 돌린다.
 const TABLE = {
@@ -24,7 +24,7 @@ const TABLE = {
   'effects.css': ['effects'],
   'screens.js': ['routines', 'motion', 'layout'],
   'app.js': ['routines', 'motion', 'layout', 'calendar', 'timer'],
-  'index.html': ['routines', 'motion', 'layout', 'calendar', 'timer'],
+  'index.html': ['routines', 'motion', 'layout', 'calendar', 'timer', 'futureword'],
   'timer.js': ['timer'],
   'timer.css': ['timer'],
   'base.css': ['motion', 'layout'],
@@ -33,8 +33,9 @@ const TABLE = {
   'calendar.js': ['calendar'],
   'calendar.css': ['calendar'],
   'character.js': ['character', 'store'],
-  'character.css': ['character', 'layout'],
-  'character3d.js': ['character', 'layout'],
+  'character.css': ['character', 'layout', 'futureword'],
+  'futureword.js': ['futureword', 'character', 'layout'],
+  'character3d.js': ['character', 'layout', 'futureword'],
   'streak.js': ['store', 'calendar'],
   '_lib.mjs': FEATURES, // 공용 도우미가 바뀌면 전부
   'run.mjs': ['store'], // 실행기만 바뀜: 간단 확인

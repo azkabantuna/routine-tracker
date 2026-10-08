@@ -93,6 +93,7 @@ window.RT = window.RT || {};
     card.appendChild(info);
     refs = { lv: lv, nm: nm, bar: bar, fill: fill, xp: xp, next: next };
     lastLevel = null;
+    if (RT.futureWord) { try { RT.futureWord.mount(card, is3d); } catch (err) {} }
   }
 
   function render(state) {
@@ -132,6 +133,7 @@ window.RT = window.RT || {};
 
   function unmount() {
     if (upTimer) { clearTimeout(upTimer); upTimer = null; }
+    if (RT.futureWord) { try { RT.futureWord.unmount(); } catch (err) {} }
     if (is3d && window.RT3D) { try { window.RT3D.dispose(); } catch (err) {} }
     if (root) root.textContent = '';
     root = null; card = null; refs = null; lastLevel = null; is3d = false;

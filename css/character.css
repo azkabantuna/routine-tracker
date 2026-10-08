@@ -120,3 +120,29 @@ body:has(#screen-manage:not([hidden])) { overflow-y: hidden; }
   .manage-panel { transition: none; }
   .char-card[data-render="3d"][data-levelup="1"] .char-info { animation: none; }
 }
+
+/* ---------- 미래의 나 단어 (구름 위 버튼 / 2D 는 카드 안 일반 흐름) ---------- */
+.fw-layer[data-mode="float"] { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.fw-layer[data-mode="float"]:not([data-placed]) > * { visibility: hidden; }
+.fw-layer[data-mode="float"] > .fw-word,
+.fw-layer[data-mode="float"] > .fw-edit { position: absolute; left: 0; top: 0; pointer-events: auto; }
+.fw-layer[data-mode="flow"] { margin-top: 10px; pointer-events: auto; }
+.fw-layer [hidden] { display: none !important; }
+.fw-word {
+  min-width: 44px; min-height: 44px; max-width: 160px; padding: 0 16px; box-sizing: border-box;
+  border: 2px solid #B9A8F0; border-radius: 22px; background: rgba(255, 255, 255, .7);
+  color: #4A2F9C; font: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; touch-action: manipulation;
+  box-shadow: 0 2px 8px rgba(107, 75, 216, .2);
+}
+.fw-word[data-empty="1"] { color: rgba(74, 47, 156, .5); font-weight: 700; }
+.fw-edit { display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 26px; background: #fff; box-shadow: 0 4px 14px rgba(43, 45, 66, .22); }
+.fw-input {
+  width: 128px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border: 2px solid #B9A8F0; border-radius: 22px;
+  font: inherit; font-size: 16px; font-weight: 700; color: var(--text); background: #fff; outline: none;
+}
+.fw-input:focus { border-color: #6B4BD8; }
+.fw-save {
+  min-width: 52px; min-height: 44px; padding: 0 12px; border: none; border-radius: 22px; background: #6B4BD8;
+  color: #fff; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; touch-action: manipulation;
+}
