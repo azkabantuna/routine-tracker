@@ -947,6 +947,9 @@ const waitMounted = (page) => page.waitForFunction(() => !!(window.RT3D && windo
     await page.click(tid('tab-manage'));
     await waitMounted(page);
     await page.waitForFunction(() => window.RT3D.getState().phase === 'running', null, { timeout: 3500 }); // 위와 같은 이유로 여유 3.5초
+    // M14 진행자: 바쁠 때 running 감지 직후 첫 샘플이 경계(turning)로 읽힌 적 2번(CPU 6배 느리게 3번 관찰 — 재시작 없음, setActive 1번). 안정된 running 뒤 샘플: 200ms 기다린 뒤 다시 running 확인
+    await sleep(200);
+    await page.waitForFunction(() => window.RT3D.getState().phase === 'running', null, { timeout: 1500 });
     const r = await page.evaluate(async () => {
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
       const pick = (s) => ({ phase: s.phase, armL: s.pose.armL, legL: s.pose.legL, bob: s.pose.bob, floor: s.pose.floor });
@@ -972,7 +975,8 @@ const waitMounted = (page) => page.waitForFunction(() => !!(window.RT3D && windo
     await page.click(tid('tab-manage'));
     await waitMounted(page);
     const before = await gsOf(page);
-    if (before.colors.body !== '#7ed957') errs.push(`기본 body=${before.colors.body}`);
+    // M14: 3D 기본색 몸 #FF7A3D(옛 #7ed957). 대소문자 무시 비교.
+    if (before.colors.body.toLowerCase() !== '#ff7a3d') errs.push(`기본 body=${before.colors.body}`);
     const raw0 = await getRaw(page);
     const keys0 = await page.evaluate(() => localStorage.length);
     const r = await page.evaluate(async () => {
@@ -1006,7 +1010,8 @@ const waitMounted = (page) => page.waitForFunction(() => !!(window.RT3D && windo
     await page.click(tid('tab-manage'));
     await waitMounted(page);
     const again = await gsOf(page);
-    if (again.colors.body !== '#7ed957' || again.colors.legs !== '#ffb347') errs.push(`새로고침 후 색 ${again.colors.body}/${again.colors.legs} (기본 기대)`);
+    // M14: 기본 몸 #FF7A3D·다리 #6B4BD8(옛 #7ed957·#ffb347). 대소문자 무시 비교.
+    if (again.colors.body.toLowerCase() !== '#ff7a3d' || again.colors.legs.toLowerCase() !== '#6b4bd8') errs.push(`새로고침 후 색 ${again.colors.body}/${again.colors.legs} (기본 기대)`);
     if (pe.length) errs.push('pageerror: ' + pe.join('|'));
     await ctx.close();
     return errs.length ? errs.join('; ') : true;

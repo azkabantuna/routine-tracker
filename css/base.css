@@ -1,21 +1,46 @@
 /* routine-tracker 기본 스타일 (M1: 깔끔한 기본, 큰 효과는 M3) */
 :root {
-  --bg: #FFF8F0;
-  --primary: #FF7A3D;
-  --primary-dark: #D95A20;
-  --text: #2B2D42;
-  --text-soft: #6B6E85;
-  --card: #FFFFFF;
-  --mini: #8BD17C;
-  --mini-dark: #5FA650;
-  --more: #4DA8FF;
-  --more-dark: #2A7FD4;
-  --max: #FFB800;
-  --max-dark: #CC9100;
-  --line: #F0E4D6;
-  --danger: #E5484D;
-  --radius-card: 20px;
-  --radius-btn: 16px;
+  /* ===== 기준값 (M14): 색·둥근 정도·그림자·시간은 여기 한 곳에서만 정한다 ===== */
+  --c-bg: #FFF8F0;
+  --c-card: #FFFFFF;
+  --c-text: #2B2D42;
+  --c-text2: #6B6E85;
+  --c-line: #F0E4D6;
+  --c-sunk: #F6EDE2;
+  --c-accent: #FF7A3D;
+  --c-accent-dark: #D95A20;
+  --c-accent-text: #9A3B0A; /* 글자로 쓸 때 (대비 ≥4.5) */
+  --c-accent-soft: #FFE9DC;
+  --c-danger: #E5484D;
+  --c-danger-dark: #B0343A;
+  --c-future: #6B4BD8;
+  --c-future-soft: color-mix(in srgb, var(--c-future) 40%, var(--c-card));
+  /* 강도 3색: 면 / 눌림 그림자 / 글자용 진한 짝 / 카드 바탕 (흑백 명도 차 유지) */
+  --c-mini: #8BD17C; --c-mini-face: #8BD17C; --c-mini-dark: #5FA650; --c-mini-text: #3F7A33; --c-mini-bg: #F4FBF2;
+  --c-more: #4DA8FF; --c-more-face: #4DA8FF; --c-more-dark: #2A7FD4; --c-more-text: #1F6BB8; --c-more-bg: #F0F7FF;
+  --c-max: #FFB800; --c-max-face: #FFB800; --c-max-dark: #CC9100;  --c-max-text: #8A6400;  --c-max-bg: #FFF8E1;
+  --c-ink-a08: rgba(43, 45, 66, 0.08);
+  --c-ink-a12: rgba(43, 45, 66, 0.12);
+  --c-scrim: rgba(43, 45, 66, 0.4);
+
+  --r-s: 12px;  /* 칩·타일·입력칸 */
+  --r-m: 16px;  /* 모든 버튼 */
+  --r-l: 20px;  /* 카드·패널·시트 */
+  --r-l-top: 20px 20px 0 0;
+  --r-pill: 999px;
+
+  --sh-press: 0 4px 0 var(--shade, var(--c-line));        /* 눌림면 (색만 --shade 로 바꿈) */
+  --sh-press-down: 0 1px 0 var(--shade, var(--c-line));   /* 누르는 동안 */
+  --sh-float: 0 8px 24px var(--c-ink-a08);
+  --sh-panel: 0 -6px 24px var(--c-ink-a12);
+
+  --t-fast: 100ms;  /* 누름 */
+  --t-base: 280ms;  /* 화면·카드 */
+  --t-pop: 350ms;   /* 튀어오름 */
+  --t-out: 80ms;    /* 탭 전환에서 나가는 화면 */
+  --ease-out: ease-out;
+  --ease-pop: cubic-bezier(.34, 1.56, .64, 1);
+
   --tabbar-h: 68px;
 }
 
@@ -31,8 +56,8 @@ html, body {
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: var(--c-bg);
+  color: var(--c-text);
   font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.45;
@@ -56,14 +81,14 @@ button, input { font: inherit; color: inherit; }
 }
 
 /* ---------- 탭 전환 (transform·opacity 만, 이동 16px = 화면 좌우 여백) ---------- */
-.screen[data-transition="enter"] { animation: tab-enter 260ms ease both; }
+.screen[data-transition="enter"] { animation: tab-enter var(--t-base) var(--ease-out) both; }
 .screen[data-transition="leave"] {
   position: absolute;
   top: 16px;
   left: 16px;
   right: 16px;
   pointer-events: none;
-  animation: tab-leave 260ms ease both;
+  animation: tab-leave var(--t-out) var(--ease-out) both;
 }
 .screens[data-dir="1"] .screen[data-transition="enter"] { --from: 16px; }
 .screens[data-dir="-1"] .screen[data-transition="enter"] { --from: -16px; }
@@ -91,25 +116,26 @@ button, input { font: inherit; color: inherit; }
   min-width: 44px;
   padding: 10px 20px;
   border: none;
-  border-radius: var(--radius-btn);
+  border-radius: var(--r-m);
   font-weight: 800;
   cursor: pointer;
 }
 
 .btn-primary {
-  background: var(--primary);
-  color: #fff;
-  box-shadow: 0 4px 0 var(--primary-dark);
+  --shade: var(--c-accent-dark);
+  background: var(--c-accent);
+  color: var(--c-text);
+  box-shadow: var(--sh-press);
 }
-.btn-primary:active { box-shadow: 0 1px 0 var(--primary-dark); } /* 그림자는 transition 없이 즉시 */
-.btn-danger-solid { background: var(--danger); box-shadow: 0 4px 0 #B0343A; }
-.btn-danger-solid:active { box-shadow: 0 1px 0 #B0343A; }
+.btn-primary:active { box-shadow: var(--sh-press-down); } /* 그림자는 transition 없이 즉시 */
+.btn-danger-solid { --shade: var(--c-danger-dark); background: var(--c-danger); box-shadow: var(--sh-press); }
+.btn-danger-solid:active { box-shadow: var(--sh-press-down); }
 
 .btn-ghost {
-  background: #fff;
-  color: var(--text);
-  box-shadow: 0 4px 0 var(--line);
-  border: 2px solid var(--line);
+  background: var(--c-card);
+  color: var(--c-text);
+  box-shadow: var(--sh-press);
+  border: 2px solid var(--c-line);
 }
 
 .btn-block { display: block; width: 100%; margin-bottom: 16px; }
@@ -118,17 +144,17 @@ button, input { font: inherit; color: inherit; }
   min-height: 44px;
   padding: 8px 14px;
   font-size: 15px;
-  background: #fff;
-  border: 2px solid var(--line);
-  box-shadow: 0 3px 0 var(--line);
+  background: var(--c-card);
+  border: 2px solid var(--c-line);
+  box-shadow: var(--sh-press);
 }
-.btn-danger { color: var(--danger); }
+.btn-danger { color: var(--c-danger); }
 
 /* ---------- 오늘 상단 ---------- */
 .today-header { margin-bottom: 16px; }
 .today-date {
   margin: 4px 0 0;
-  color: var(--text-soft);
+  color: var(--c-text2);
   font-weight: 700;
   font-size: 15px;
 }
@@ -138,30 +164,36 @@ button, input { font: inherit; color: inherit; }
 }
 .progress-bar {
   height: 12px;
-  border-radius: 999px;
-  background: #F3E6D8;
+  border-radius: var(--r-pill);
+  background: var(--c-sunk);
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
   width: 100%;
-  border-radius: 999px;
-  background: var(--primary);
+  border-radius: var(--r-pill);
+  background: var(--c-accent);
   transform-origin: left;
   transform: scaleX(0);
-  transition: transform 300ms ease;
+  transition: transform var(--t-base) var(--ease-out);
 }
 
 /* ---------- 빈 상태 ---------- */
 .empty-state, .placeholder {
-  background: var(--card);
-  border-radius: var(--radius-card);
-  box-shadow: 0 8px 24px rgba(43, 45, 66, 0.08);
+  background: var(--c-card);
+  border-radius: var(--r-l);
+  box-shadow: var(--sh-float);
   padding: 32px 20px;
   text-align: center;
 }
 .empty-emoji { font-size: 44px; margin: 0 0 8px; }
-.empty-text { margin: 0 0 20px; color: var(--text-soft); font-weight: 600; }
-.placeholder p { margin: 0; color: var(--text-soft); font-weight: 700; }
+.empty-text { margin: 0 0 20px; color: var(--c-text2); font-weight: 600; }
+.placeholder p { margin: 0; color: var(--c-text2); font-weight: 700; }
 .placeholder .empty-emoji { margin-bottom: 8px; }
 
+
+/* ---------- 선택 탭(알약+굵게)·안내 한 줄 (블라인드 결과 확정: 1-나·2-나) ---------- */
+.today-hint:not([hidden]) { display: block; margin: 0 0 12px; font-size: 13px; line-height: 20px; max-height: 24px; font-weight: 700; color: var(--c-text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 오늘 탭 맨 위: 미래의 나 한 줄 (높이 ≤28px, 길면 말줄임) */
+.today-future { margin: 0 0 8px; height: 28px; line-height: 28px; font-size: 14px; font-weight: 800; color: var(--c-future); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

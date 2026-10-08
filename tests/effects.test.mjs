@@ -45,9 +45,11 @@ function pressA(page, idx, level) {
     out.kinds = [...new Set(q('.emoji-particle').map((p) => p.getAttribute('data-kind')))];
     const glowEl = q('.celebrate-glow')[0];
     out.glowDur = glowEl ? glowEl.getAnimations()[0].effect.getComputedTiming().duration : null;
-    // 터짐 입자 시작 중심 - 버튼 중심
+    // 터짐 입자 시작 중심 - (카드 상단 −8px). M14 적용: 축포 시작점 = 카드 위 −8px (이전 기준: 버튼 중심, 옛 기록)
+    const cardTop = cards[idx].getBoundingClientRect().top;
+    const startPt = { x: bc.x, y: cardTop - 8 };
     const bursts = q('.emoji-burst .emoji-particle').concat(q('.confetti'));
-    out.startOffsetMax = Math.max(0, ...bursts.map((p) => { const r = p.getBoundingClientRect(); return Math.hypot(r.x + r.width / 2 - bc.x, r.y + r.height / 2 - bc.y); }));
+    out.startOffsetMax = Math.max(0, ...bursts.map((p) => { const r = p.getBoundingClientRect(); return Math.hypot(r.x + r.width / 2 - startPt.x, r.y + r.height / 2 - startPt.y); }));
     // 우수수 첫 표본
     const rain = q('.emoji-rain .emoji-particle');
     const r0 = rain.map((p) => { const r = p.getBoundingClientRect(); return { top: r.top, cy: r.top + r.height / 2, left: r.left }; });
@@ -125,7 +127,7 @@ await run(async (browser) => {
     const f = (lv) => parseFloat(A[lv].fontBurst[0]);
     return (f('mini') < f('more') && f('more') < f('max')) || JSON.stringify([f('mini'), f('more'), f('max')]);
   });
-  await check('4-터짐 입자 시작 중심이 누른 버튼 중앙 ±20px (3단계 모두)', async () => {
+  await check('4-터짐 입자 시작 중심이 카드 상단 −8px 기준 ±20px (3단계 모두)', async () => {
     const m = LEVELS.map((lv) => A[lv].startOffsetMax);
     return m.every((x) => x <= 20) || m.map((x) => x.toFixed(1)).join('/');
   });

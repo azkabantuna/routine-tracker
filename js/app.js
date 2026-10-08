@@ -59,6 +59,7 @@ window.RT = window.RT || {};
     }
 
     target.hidden = false;
+    if (name === 'today' && RT.screens && RT.screens.updateFuture) RT.screens.updateFuture();
     if (name === 'calendar' && RT.calendar) RT.calendar.refresh(); // 읽기만: 최신 기록으로 다시 그림
     if (instant || reduced() || !prev) {
       if (leaving) leaving.hidden = true;

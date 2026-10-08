@@ -3,22 +3,22 @@
 .cal-stat {
   margin: 0;
   padding: 10px 12px;
-  background: var(--card);
-  border-radius: var(--radius-btn);
-  box-shadow: 0 4px 0 var(--line);
+  background: var(--c-card);
+  border-radius: var(--r-m);
+  box-shadow: var(--sh-press);
   font-weight: 700;
-  color: var(--text-soft);
+  color: var(--c-text2);
   font-size: 14px;
 }
-.cal-stat strong { font-size: 24px; font-weight: 800; color: var(--text); }
+.cal-stat strong { font-size: 24px; font-weight: 800; color: var(--c-text); }
 .cal-stat-label { display: block; font-size: 13px; }
-.cal-stat [data-streak-state="today"], .cal-stat strong[data-streak-state="today"] { color: var(--primary-dark); }
-.cal-streak-note { margin: 0 0 12px 4px; font-size: 14px; font-weight: 700; color: var(--text-soft); min-height: 1.4em; }
+.cal-stat [data-streak-state="today"], .cal-stat strong[data-streak-state="today"] { color: var(--c-accent-dark); }
+.cal-streak-note { margin: 0 0 12px 4px; font-size: 14px; font-weight: 700; color: var(--c-text2); min-height: 1.4em; }
 
 .cal-card {
-  background: var(--card);
-  border-radius: var(--radius-card);
-  box-shadow: 0 8px 24px rgba(43, 45, 66, 0.08);
+  background: var(--c-card);
+  border-radius: var(--r-l);
+  box-shadow: var(--sh-float);
   padding: 10px 6px 12px;
 }
 .cal-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; padding: 0 4px; }
@@ -30,11 +30,11 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
 }
-.cal-weekdays { margin-bottom: 4px; text-align: center; font-size: 12px; font-weight: 800; color: var(--text-soft); }
-.cal-weekdays span:first-child { color: var(--danger); }
+.cal-weekdays { margin-bottom: 4px; text-align: center; font-size: 12px; font-weight: 800; color: var(--c-text2); }
+.cal-weekdays span:first-child { color: var(--c-danger); }
 
 .cal-grid { touch-action: pan-y; }
-.cal-grid[data-anim="slide"] { animation: cal-slide 280ms cubic-bezier(.22, .8, .3, 1) both; }
+.cal-grid[data-anim="slide"] { animation: cal-slide var(--t-base) var(--ease-out) both; }
 .cal-grid[data-dir="1"] { --cal-from: 28px; }
 .cal-grid[data-dir="-1"] { --cal-from: -28px; }
 @keyframes cal-slide {
@@ -52,25 +52,25 @@
   align-items: center;
   justify-content: center;
   border: 2px solid transparent;
-  border-radius: 14px;
-  background: #F6EDE2;
-  color: var(--text-soft);
+  border-radius: var(--r-s);
+  background: var(--c-sunk);
+  color: var(--c-text2);
   font-weight: 800;
   font-size: 15px;
   cursor: pointer;
-  box-shadow: 0 2px 0 var(--line);
+  box-shadow: var(--sh-press);
   transform: none;
-  transition: transform 280ms cubic-bezier(.34, 1.56, .64, 1);
+  transition: transform var(--t-base) var(--ease-pop);
   -webkit-user-select: none;
   user-select: none;
   touch-action: pan-y;
 }
-.cal-day:active { transform: scale(.92); transition-duration: 80ms; }
-.cal-day[data-level="mini"] { background: var(--mini); color: var(--text); box-shadow: 0 3px 0 var(--mini-dark); }
-.cal-day[data-level="more"] { background: var(--more); color: #fff; box-shadow: 0 3px 0 var(--more-dark); }
-.cal-day[data-level="max"]  { background: var(--max);  color: var(--text); box-shadow: 0 3px 0 var(--max-dark); }
-.cal-day[data-today="true"] { border-color: var(--primary); font-weight: 900; outline: 2px solid var(--primary); outline-offset: 1px; }
-.cal-day[aria-pressed="true"] { border-color: var(--text); }
+.cal-day:active { transform: scale(.92); transition-duration: var(--t-fast); }
+.cal-day[data-level="mini"] { --shade: var(--c-mini-dark); background: var(--c-mini); color: var(--c-text); }
+.cal-day[data-level="more"] { --shade: var(--c-more-dark); background: var(--c-more); color: var(--c-text); }
+.cal-day[data-level="max"]  { --shade: var(--c-max-dark); background: var(--c-max); color: var(--c-text); }
+.cal-day[data-today="true"] { border-color: var(--c-accent); font-weight: 900; outline: 2px solid var(--c-accent); outline-offset: 1px; }
+.cal-day[aria-pressed="true"] { border-color: var(--c-text); }
 
 /* 루틴별 강도 점 줄: absolute 라 칸 크기 불변 */
 .cal-dots {
@@ -88,37 +88,37 @@
   flex: none;
   width: 7px; height: 7px;
   border-radius: 50%;
-  border: 1px solid var(--text);
-  background: var(--line);
+  border: 1px solid var(--c-text);
+  background: var(--c-line);
 }
 .cal-day:not([data-routines="0"]) .cal-num { position: relative; top: -4px; }
-.cal-dot[data-level="mini"] { background: var(--mini); }
-.cal-dot[data-level="more"] { background: var(--more); }
-.cal-dot[data-level="max"]  { background: var(--max); }
+.cal-dot[data-level="mini"] { background: var(--c-mini); }
+.cal-dot[data-level="more"] { background: var(--c-more); }
+.cal-dot[data-level="max"]  { background: var(--c-max); }
 .cal-dot-more { flex: none; font-size: 9px; font-weight: 800; line-height: 1; white-space: nowrap; color: inherit; }
 
 .cal-detail {
   margin-top: 14px;
   padding: 14px 16px;
-  background: var(--card);
-  border-radius: var(--radius-card);
-  box-shadow: 0 8px 24px rgba(43, 45, 66, 0.08);
+  background: var(--c-card);
+  border-radius: var(--r-l);
+  box-shadow: var(--sh-float);
   min-height: 64px;
 }
 .cal-detail p { margin: 0; }
-.cal-hint, .cal-empty { color: var(--text-soft); font-weight: 700; }
+.cal-hint, .cal-empty { color: var(--c-text2); font-weight: 700; }
 .cal-detail-date { font-weight: 800; margin-bottom: 8px !important; }
 .cal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .cal-item {
   padding: 8px 12px;
-  border-radius: 12px;
-  background: #F6EDE2;
-  border-left: 6px solid var(--line);
+  border-radius: var(--r-s);
+  background: var(--c-sunk);
+  border-left: 6px solid var(--c-line);
   font-weight: 700;
   overflow-wrap: anywhere;
 }
-.cal-item[data-level="mini"] { border-left-color: var(--mini); }
-.cal-item[data-level="more"] { border-left-color: var(--more); }
-.cal-item[data-level="max"]  { border-left-color: var(--max); }
+.cal-item[data-level="mini"] { border-left-color: var(--c-mini); }
+.cal-item[data-level="more"] { border-left-color: var(--c-more); }
+.cal-item[data-level="max"]  { border-left-color: var(--c-max); }
 
 /* 움직임 줄이기는 overlays.css 의 전체 규칙(animation·transition 끔)이 처리, 누름 모양은 그대로 */

@@ -5,7 +5,7 @@ window.RT = window.RT || {};
 // 정리는 animationend 가 아니라 안전 타이머로 한다 (움직임 줄이기·숨은 화면에서도 반드시 지워짐).
 (function (RT) {
   var MAX_PARTICLES = 80;
-  var COLORS = ['#FF7A3D', '#5FD3B0', '#FFD23F', '#FF8FB1', '#5BC0FF', '#B79CFF'];
+  var COLORS = ['#FF7A3D', '#8BD17C', '#FFB800', '#6B4BD8', '#4DA8FF', '#E5484D']; // 기준 색(css/base.css :root)과 같은 값
   var DIST = [0.7, 0.85, 1.0];
   var FONT = 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
 
@@ -13,12 +13,12 @@ window.RT = window.RT || {};
   var CFG = {
     mini: { confetti: 8, burst: 3, rain: 0, R: 80, size: 22, rainSize: 0, cw: 6, ch: 9, g: 40, life: 1200,
             cDur: 760, cDurStep: 40, cDelayMod: 4, cDelayStep: 20,
-            bDur: 880, bDelayMod: 3, bDelayStep: 30, glow: false },
+            bDur: 880, bDelayMod: 3, bDelayStep: 30, glow: false, flash: true },
     more: { confetti: 24, burst: 4, rain: 4, R: 130, size: 28, rainSize: 28, cw: 8, ch: 12, g: 60, life: 1600,
             cDur: 1000, cDurStep: 50, cDelayMod: 6, cDelayStep: 20,
             bDur: 1150, bDelayMod: 4, bDelayStep: 40,
             rDur: 1000, rDurStep: 50, rMul: 3, rDelayStep: 60, glow: false },
-    max:  { confetti: 40, burst: 6, rain: 10, R: 190, size: 36, rainSize: 32, cw: 10, ch: 15, g: 80, life: 2200,
+    max:  { confetti: 40, burst: 6, rain: 10, R: 210, size: 36, rainSize: 32, cw: 10, ch: 15, g: 80, life: 2200,
             cDur: 1500, cDurStep: 60, cDelayMod: 5, cDelayStep: 50,
             bDur: 1700, bDelayMod: 6, bDelayStep: 40,
             rDur: 1100, rDurStep: 100, rMul: 7, rDelayStep: 40, glow: true, glowDur: 1800 }
@@ -71,6 +71,7 @@ window.RT = window.RT || {};
     var H = window.innerHeight || document.documentElement.clientHeight || 640;
     var x = isFinite(opts.x) ? opts.x : W / 2;
     var y = isFinite(opts.y) ? opts.y : H / 2;
+    var up = opts.up === true; // 위쪽으로만 퍼지고 아래로 떨어지지 않음 (카드 글씨 안 덮기)
     var glyph = typeof opts.emoji === 'string' && opts.emoji ? opts.emoji : '✨';
 
     var total = cfg.confetti + cfg.burst + cfg.rain;
@@ -95,11 +96,20 @@ window.RT = window.RT || {};
       frag.appendChild(glow);
     }
 
+    if (cfg.flash) { // mini: 크기 대신 짧은 빛 1회 (입자 수 그대로)
+      var fl = el('div', 'celebrate-flash');
+      fl.style.left = (x - 60) + 'px';
+      fl.style.top = (y - 60) + 'px';
+      setAnim(fl, 600, 0);
+      frag.appendChild(fl);
+    }
+
     // 색종이: 각도는 고르게(+작은 흔들림), 거리는 R×[0.7, 0.85, 1.0] 순환 (무작위 없음)
     for (i = 0; i < cfg.confetti; i++) {
       var ca = ((i + 0.5) / cfg.confetti) * 360 + ((i * 37) % 11 - 5);
       var cr = cfg.R * DIST[i % 3];
       var rad = ca * Math.PI / 180;
+      var cdy = up ? -Math.max(Math.abs(Math.sin(rad)) * cr, cfg.ch * 1.5 + 8) : Math.sin(rad) * cr; // up: 시작점(카드 위 -8px) 위쪽으로만
       var c = el('div', 'confetti');
       c.setAttribute('data-i', String(i));
       c.style.width = cfg.cw + 'px';
@@ -108,9 +118,9 @@ window.RT = window.RT || {};
       c.style.top = (y - cfg.ch / 2) + 'px';
       c.style.background = COLORS[i % COLORS.length];
       c.style.setProperty('--dx', Math.round(Math.cos(rad) * cr) + 'px');
-      c.style.setProperty('--dy', Math.round(Math.sin(rad) * cr) + 'px');
+      c.style.setProperty('--dy', Math.round(cdy) + 'px');
       c.style.setProperty('--rot', ((i % 2 ? 1 : -1) * (180 + (i * 47) % 180)) + 'deg');
-      c.style.setProperty('--g', cfg.g + 'px');
+      c.style.setProperty('--g', (up ? 0 : cfg.g) + 'px');
       setAnim(c, cfg.cDur + (i % 3) * cfg.cDurStep, (i % cfg.cDelayMod) * cfg.cDelayStep);
       frag.appendChild(c);
       made.push(c);
@@ -133,9 +143,9 @@ window.RT = window.RT || {};
       p.style.left = (x - bs / 2) + 'px';
       p.style.top = (y - bs / 2) + 'px';
       p.style.setProperty('--dx', Math.round(Math.cos(brad) * br) + 'px');
-      p.style.setProperty('--dy', Math.round(Math.sin(brad) * br) + 'px');
+      p.style.setProperty('--dy', Math.round((up ? -Math.abs(Math.sin(brad)) : Math.sin(brad)) * br) + 'px');
       p.style.setProperty('--rot', ((i % 2 ? 1 : -1) * 20) + 'deg');
-      p.style.setProperty('--g', cfg.g + 'px');
+      p.style.setProperty('--g', (up ? 0 : cfg.g) + 'px');
       setAnim(p, cfg.bDur, (i % cfg.bDelayMod) * cfg.bDelayStep);
       burst.appendChild(p);
       made.push(p);
@@ -160,7 +170,7 @@ window.RT = window.RT || {};
         rp.style.left = Math.round(cx - rs / 2) + 'px';
         rp.style.top = '-48px';
         rp.style.setProperty('--dx', ((i % 2 ? 1 : -1) * 12) + 'px');
-        rp.style.setProperty('--dy', Math.round(H * 0.9) + 'px');
+        rp.style.setProperty('--dy', Math.round(H * 0.9) + 'px'); // 우수수는 up 이어도 화면 끝까지 (CSS 로 흐리게)
         rp.style.setProperty('--rot', ((i % 2 ? 1 : -1) * 40) + 'deg');
         setAnim(rp, cfg.rDur + (i % 3) * cfg.rDurStep, ((i * cfg.rMul) % cfg.rain) * cfg.rDelayStep);
         rain.appendChild(rp);

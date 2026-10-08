@@ -177,6 +177,28 @@ window.RT = window.RT || {};
     firstRenderDone = true;
     els.emptyState.hidden = total !== 0;
     updateProgress(done, total);
+    updateHint(total);
+  }
+
+  // 연속 일수 3일 미만일 때만 안내 한 줄 (streak 읽기만, 저장 없음)
+  function updateHint(total) {
+    var h = document.getElementById('today-hint');
+    if (!h) return;
+    var n = RT.totalStreak ? RT.totalStreak(store.state.logs, RT.today()) : 0;
+    h.hidden = !(total > 0 && n < 3);
+    updateFuture(n);
+  }
+
+  // 오늘 탭 맨 위 '미래의 나' 한 줄: 단어(읽기만) + 연속 일수. 저장 쓰기 없음
+  function updateFuture(n) {
+    var f = document.getElementById('today-future');
+    if (!f) return;
+    if (n == null) n = RT.totalStreak ? RT.totalStreak(store.state.logs, RT.today()) : 0;
+    var w = '';
+    try { w = window.localStorage.getItem('routineFutureWord') || ''; } catch (e) {}
+    w = Array.from(w.trim()).slice(0, 12).join('') || '미래의 나';
+    var t = '🔮 ' + w + ' · ' + (n > 0 ? '🔥 ' + n + '일째' : '오늘부터 1일째');
+    if (f.textContent !== t) f.textContent = t;
   }
 
   function nextLive(node) {
@@ -279,15 +301,16 @@ window.RT = window.RT || {};
     // 터짐 위치: 카드를 고치기 전에 눌린 버튼 중앙을 읽는다
     var rect = btn.getBoundingClientRect();
     var cx = rect.left + rect.width / 2;
-    var cy = rect.top + rect.height / 2;
+    var cy = card.getBoundingClientRect().top - 8; // 축포 시작점: 카드 위쪽 바깥 (글씨를 덮지 않게)
     var result = RT.routines.toggleLevel(RT.today(), id, lv);
     checkSaveError();
     updateCard(card, r, RT.routines.getLevel(RT.today(), id));
     updateProgress(countDone(), store.getRoutines().length);
+    updateHint(store.getRoutines().length);
     renderCharacter();
     if (result) setAnim(card, 'pop', 370); // 취소(null)는 팝 없음
     if (result === 'mini') showToast('mini 도 한 거다!', 'mini');
-    if (result && RT.effects) RT.effects.celebrate({ level: result, x: cx, y: cy, emoji: r.emoji || '' }); // 취소는 효과 없음
+    if (result && RT.effects) RT.effects.celebrate({ level: result, x: cx, y: cy, up: true, emoji: r.emoji || '' }); // 취소는 효과 없음
   });
 
   // ---------- 루틴 관리 화면 ----------
@@ -389,6 +412,7 @@ window.RT = window.RT || {};
     reduced: reduced,
     flushPendingEnter: flushPendingEnter,
     renderToday: renderToday,
+    updateFuture: updateFuture,
     renderManage: renderManage,
     renderAll: renderAll
   };

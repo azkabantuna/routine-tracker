@@ -18,7 +18,7 @@
 
 .confetti {
   position: absolute;
-  border-radius: 2px;
+  border-radius: var(--r-pill);
   animation-name: confetti-burst;
   animation-timing-function: ease-out;
   animation-fill-mode: both;
@@ -44,13 +44,29 @@
   animation-timing-function: ease-in;
 }
 
+.celebrate .emoji-rain { opacity: .45; } /* 카드 글씨를 가리지 않게 흐리게 */
+
+.celebrate-flash {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--c-mini) 90%, transparent) 0%, color-mix(in srgb, var(--c-mini) 40%, transparent) 45%, transparent 70%);
+  animation: flash-pulse 600ms var(--ease-out) both;
+}
+@keyframes flash-pulse {
+  0% { transform: scale(.4); opacity: 0; }
+  40% { transform: scale(1); opacity: .8; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+
 .celebrate-glow {
   position: absolute;
   width: 360px;
   height: 360px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 200, 40, 0.85) 0%, rgba(255, 184, 0, 0.4) 40%, rgba(255, 184, 0, 0) 70%);
-  animation: glow-pulse 1800ms ease-out both;
+  background: radial-gradient(circle, color-mix(in srgb, var(--c-max) 85%, transparent) 0%, color-mix(in srgb, var(--c-max) 40%, transparent) 40%, transparent 70%);
+  animation: glow-pulse 1800ms var(--ease-out) both;
 }
 
 /* 터짐: 0~50% 로 퍼지고, 나머지는 중력으로 조금 떨어지며 사라짐 */

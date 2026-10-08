@@ -5,13 +5,13 @@
   left: 50%;
   transform: translateX(-50%);
   max-width: calc(100% - 32px);
-  background: var(--text);
-  color: #fff;
+  background: var(--c-text);
+  color: var(--c-card);
   font-weight: 800;
   font-size: 14px;
   padding: 8px 20px;
-  border-radius: 999px;
-  box-shadow: 0 8px 20px rgba(43, 45, 66, 0.25);
+  border-radius: var(--r-pill);
+  box-shadow: var(--sh-float);
   z-index: 15;
   text-align: center;
   white-space: nowrap;
@@ -23,9 +23,9 @@
 .banner-error {
   margin: 12px 16px 0;
   padding: 12px 16px;
-  border-radius: 16px;
-  background: #FFE8DC;
-  color: #8A3410;
+  border-radius: var(--r-m);
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
   font-weight: 700;
   font-size: 14px;
 }
@@ -34,7 +34,7 @@
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(43, 45, 66, 0.4);
+  background: var(--c-scrim);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -45,10 +45,10 @@
   max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
-  background: var(--bg);
-  border-radius: 24px 24px 0 0;
+  background: var(--c-bg);
+  border-radius: var(--r-l-top);
   padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0));
-  animation: sheet-up 0.25s ease;
+  animation: sheet-up var(--t-base) var(--ease-out);
 }
 @keyframes sheet-up {
   from { transform: translateY(40px); opacity: 0; }
@@ -69,12 +69,12 @@
   width: 100%;
   min-height: 48px;
   padding: 10px 14px;
-  border: 2px solid var(--line);
-  border-radius: 14px;
-  background: #fff;
+  border: 2px solid var(--c-line);
+  border-radius: var(--r-s);
+  background: var(--c-card);
   font-size: 16px;
 }
-.field input:focus { outline: none; border-color: var(--primary); }
+.field input:focus { outline: none; border-color: var(--c-accent); }
 
 /* 이름 + 이모지 한 줄 */
 .name-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 12px; }
@@ -99,28 +99,28 @@
 .pick {
   min-height: 44px;
   padding: 0;
-  border: 2px solid var(--line);
-  border-radius: 12px;
-  background: #fff;
+  border: 2px solid var(--c-line);
+  border-radius: var(--r-s);
+  background: var(--c-card);
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
   font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
 }
-.pick:active { background: var(--line); }
+.pick:active { background: var(--c-line); }
 @media (max-width: 380px) {
   .emoji-pick { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
   .pick { min-height: 40px; }
 }
 
 .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-.dot-mini { background: var(--mini); }
-.dot-more { background: var(--more); }
-.dot-max { background: var(--max); }
+.dot-mini { background: var(--c-mini); }
+.dot-more { background: var(--c-more); }
+.dot-max { background: var(--c-max); }
 
 .error-name {
   margin: -6px 0 12px;
-  color: var(--danger);
+  color: var(--c-danger);
   font-weight: 800;
   font-size: 14px;
 }

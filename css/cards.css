@@ -6,16 +6,16 @@
 }
 
 .card {
-  background: var(--card);
-  border-radius: var(--radius-card);
-  box-shadow: 0 8px 24px rgba(43, 45, 66, 0.08);
+  background: var(--c-card);
+  border-radius: var(--r-l);
+  box-shadow: var(--sh-float);
   padding: 16px;
   margin-bottom: 14px;
   border: 3px solid transparent;
 }
-.card[data-anim="enter"] { animation: card-enter 300ms ease-out both; }
-.card[data-anim="pop"] { animation: card-pop 350ms ease; }
-.card[data-leaving="true"] { animation: card-leave 250ms ease-in both; pointer-events: none; }
+.card[data-anim="enter"] { animation: card-enter var(--t-base) var(--ease-out) both; }
+.card[data-anim="pop"] { animation: card-pop var(--t-pop) var(--ease-out); }
+.card[data-leaving="true"] { animation: card-leave var(--t-base) ease-in both; pointer-events: none; }
 @keyframes card-enter {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: none; }
@@ -29,9 +29,9 @@
   from { opacity: 1; transform: none; }
   to { opacity: 0; transform: scale(.96); }
 }
-.card[data-current="mini"] { border-color: var(--mini); background: #F4FBF2; }
-.card[data-current="more"] { border-color: var(--more); background: #F0F7FF; }
-.card[data-current="max"]  { border-color: var(--max);  background: #FFF8E1; }
+.card[data-current="mini"] { border-color: var(--c-mini); background: var(--c-mini-bg); }
+.card[data-current="more"] { border-color: var(--c-more); background: var(--c-more-bg); }
+.card[data-current="max"]  { border-color: var(--c-max);  background: var(--c-max-bg); }
 
 .card-head {
   display: flex;
@@ -63,31 +63,33 @@
 .level-btn {
   width: 100%;
   min-height: 48px;
-  border-radius: var(--radius-btn);
-  border: 2px solid var(--line);
-  background: #fff;
+  border-radius: var(--r-m);
+  border: 2px solid var(--c-line);
+  outline: 1px solid var(--c-line); /* 흰 버튼이 흰 카드에 묻히지 않게 겉선 1px */
+  background: var(--c-card);
   font-weight: 800;
   font-size: 16px;
   cursor: pointer;
-  box-shadow: 0 4px 0 var(--line);
+  box-shadow: var(--sh-press);
 }
-.level-btn:active { box-shadow: 0 1px 0 var(--line); }
+.level-btn:active { box-shadow: var(--sh-press-down); }
+.level-btn[aria-pressed="true"] { font-weight: 900; }
 
-/* 버튼 누름감: 누르면 빠르게 작아지고(80ms), 떼면 오버슈트로 튀어오름(280ms). transform 만 움직임 */
+/* 버튼 누름감: 누르면 빠르게 작아지고(100ms), 떼면 오버슈트로 튀어오름(280ms). transform 만 움직임 */
 .btn, .level-btn, .tab {
   transform: none;
-  transition: transform 280ms cubic-bezier(.34, 1.56, .64, 1);
+  transition: transform var(--t-base) var(--ease-pop);
   -webkit-user-select: none;
   user-select: none;
   touch-action: manipulation;
 }
 .btn:active, .level-btn:active, .tab:active {
   transform: translateY(3px) scale(.90);
-  transition-duration: 80ms;
+  transition-duration: var(--t-fast);
 }
 /* 뗄 때 한 번 통통 (JS 가 data-bounce 를 450ms 동안 붙임) */
 .btn[data-bounce="true"], .level-btn[data-bounce="true"], .tab[data-bounce="true"] {
-  animation: btn-bounce 340ms ease-out both;
+  animation: btn-bounce var(--t-pop) var(--ease-out) both;
 }
 @keyframes btn-bounce {
   0% { transform: translateY(3px) scale(.90); }
@@ -96,32 +98,32 @@
   100% { transform: none; }
 }
 
-.level-mini { color: var(--mini-dark); }
-.level-more { color: var(--more-dark); }
-.level-max  { color: var(--max-dark); }
+.level-mini { color: var(--c-mini-text); }
+.level-more { color: var(--c-more-text); }
+.level-max  { color: var(--c-max-text); }
 
-.level-btn.level-mini[aria-pressed="true"] { background: var(--mini); border-color: var(--mini); color: #fff; box-shadow: 0 4px 0 var(--mini-dark); }
-.level-btn.level-more[aria-pressed="true"] { background: var(--more); border-color: var(--more); color: #fff; box-shadow: 0 4px 0 var(--more-dark); }
-.level-btn.level-max[aria-pressed="true"]  { background: var(--max);  border-color: var(--max);  color: #fff; box-shadow: 0 4px 0 var(--max-dark); }
+.level-btn.level-mini[aria-pressed="true"] { --shade: var(--c-mini-dark); background: var(--c-mini-face); border-color: var(--c-mini-face); color: var(--c-text); }
+.level-btn.level-more[aria-pressed="true"] { --shade: var(--c-more-dark); background: var(--c-more-face); border-color: var(--c-more-face); color: var(--c-text); }
+.level-btn.level-max[aria-pressed="true"]  { --shade: var(--c-max-dark); background: var(--c-max-face); border-color: var(--c-max-face);  color: var(--c-text); }
 
 .level-crit {
   margin: 8px 0 0;
   min-height: 1.35em;
   font-size: 13px;
-  color: var(--text-soft);
+  color: var(--c-text2);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 /* ---------- 루틴 관리 ---------- */
-.manage-empty { color: var(--text-soft); font-weight: 600; text-align: center; }
+.manage-empty { color: var(--c-text2); font-weight: 600; text-align: center; }
 .manage-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--card);
-  border-radius: var(--radius-card);
-  box-shadow: 0 6px 18px rgba(43, 45, 66, 0.07);
+  background: var(--c-card);
+  border-radius: var(--r-l);
+  box-shadow: var(--sh-float);
   padding: 14px 14px 14px 18px;
   margin-bottom: 12px;
 }
@@ -134,7 +136,7 @@
   font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
 }
 .manage-name { margin: 0; min-width: 0; font-weight: 800; overflow-wrap: anywhere; }
-.manage-sub { margin: 2px 0 0; font-size: 13px; color: var(--text-soft); overflow-wrap: anywhere; }
+.manage-sub { margin: 2px 0 0; font-size: 13px; color: var(--c-text2); overflow-wrap: anywhere; }
 .manage-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
 /* ---------- 아래 탭 ---------- */
@@ -146,9 +148,9 @@
   height: var(--tabbar-h);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  background: #fff;
-  box-shadow: 0 -4px 20px rgba(43, 45, 66, 0.08);
-  border-radius: 20px 20px 0 0;
+  background: var(--c-card);
+  box-shadow: var(--sh-panel);
+  border-radius: var(--r-l-top);
   padding-bottom: env(safe-area-inset-bottom, 0);
   z-index: 10;
 }
@@ -163,10 +165,9 @@
   gap: 2px;
   font-size: 13px;
   font-weight: 800;
-  color: var(--text-soft);
+  color: var(--c-text2);
   cursor: pointer;
 }
 .tab-icon { font-size: 20px; line-height: 1; filter: grayscale(1); opacity: 0.6; }
-.tab[aria-selected="true"] { color: var(--primary); }
+.tab[aria-selected="true"] { color: var(--c-accent-text); font-weight: 900; background: var(--c-accent-soft); border-radius: var(--r-pill); min-height: 36px; margin: 8px 6px; }
 .tab[aria-selected="true"] .tab-icon { filter: none; opacity: 1; }
-
