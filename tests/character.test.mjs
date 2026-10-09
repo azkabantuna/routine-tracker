@@ -1017,7 +1017,7 @@ const waitMounted = (page) => page.waitForFunction(() => !!(window.RT3D && windo
     return errs.length ? errs.join('; ') : true;
   });
 
-  await check('M10-5. 단계: setLevel(1~4)→data-stage·scale 0.6/0.75/0.9/1.0·드로우콜 1<2<3<4≤34, setLevel(9)·("a")·(0)·(NaN) 무시, update({stage:2}) 동작, routineTracker 불변', async () => {
+  await check('M10-5. 단계: setLevel(1~4)→data-stage·scale 0.6/0.75/0.9/1.0·드로우콜 1<2<3<4≤36, setLevel(9)·("a")·(0)·(NaN) 무시, update({stage:2}) 동작, routineTracker 불변', async () => {
     const errs = [];
     const { ctx, page } = await open(browser, { seed: fixtureRaw, goto: false });
     const pe = []; page.on('pageerror', (e) => pe.push(e.message));
@@ -1047,7 +1047,7 @@ const waitMounted = (page) => page.waitForFunction(() => !!(window.RT3D && windo
     const d = [1, 2, 3, 4].map((n) => parseInt(out[n].draws));
     if (d.some((x) => !(x > 0))) errs.push(`드로우콜 값 이상 ${out[1].draws}/${out[2].draws}/${out[3].draws}/${out[4].draws}`);
     for (let i = 0; i < 3; i++) if (!(d[i] < d[i + 1])) errs.push(`드로우콜 ${i + 1}→${i + 2}: ${d[i]} ≥ ${d[i + 1]}`);
-    if (d[3] > 34) errs.push(`단계4 드로우콜 ${d[3]} (≤34)`);
+    if (d[3] > 36) errs.push(`단계4 드로우콜 ${d[3]} (≤36)`);
     if (out.bad.dataStage !== '3' || out.bad.stage !== 3 || out.bad.scale !== '0.9') errs.push(`잘못된 setLevel 후 ${out.bad.dataStage}/${out.bad.scale} (3/0.9 기대)`);
     if (out.errs.length) errs.push('잘못된 setLevel 에서 오류: ' + out.errs.join('|'));
     if (out.upd.dataStage !== '2' || out.upd.scale !== '0.75') errs.push(`update({stage:2}) 후 ${out.upd.dataStage}/${out.upd.scale} (2/0.75 기대)`);

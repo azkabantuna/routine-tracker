@@ -46,7 +46,7 @@ async function openSl(browser, { dsf = 1, reduced = false } = {}) {
 async function enterManage(page) {
   await page.click(tid('tab-manage'));
   await page.waitForFunction(() => !!(window.RT3D && window.RT3D.getState && window.RT3D.getState()), null, { timeout: 8000, polling: 100 });
-  await page.waitForFunction(() => window.__rafN >= 5 && window.RT3D.getState().draws > 0, null, { timeout: 8000, polling: 100 });
+  await page.waitForFunction(() => (window.__rafN >= 5 || window.RT3D.getState().reduced) && window.RT3D.getState().draws > 0, null, { timeout: 8000, polling: 100 });
 }
 
 // 페이지 안 샘플러: 10ms 간격으로 상태·속성을 __tl 에 쌓는다(t = 시작 후 ms)
@@ -255,7 +255,7 @@ await run(async (browser) => {
       if (!(s500.count === 14 && s500.visible === true && s500.opacity >= 0.8)) errs.push(`running+0.5s count ${s500.count}·visible ${s500.visible}·opacity ${s500.opacity?.toFixed(3)} (14·true·≥0.8 기대)`);
     }
     const frontDraws = pre.filter((s) => s.phase === 'front').slice(-1)[0]?.draws;
-    if (frontDraws !== 34) errs.push(`front 드로우콜 ${frontDraws} (stage4 34 기대: M11 30 + 미래 포털 순백 코어 1 + R1 조형 스카프 2·배낭 덮개 1)`);
+    if (frontDraws !== 35) errs.push(`front 드로우콜 ${frontDraws} (stage4 35 기대: 34 + R3 발밑 그림자 1)`);
     if (s500 && frontDraws !== undefined && (s500.draws - frontDraws < 1 || s500.draws - frontDraws > 2)) errs.push(`running 드로우콜 ${s500.draws} − front ${frontDraws} = ${s500.draws - frontDraws} (+1~2 기대: 계획 원문 ≤+2, 투명 인스턴스가 2번 그려짐)`);
     if (s500 && s500.draws > 39) errs.push(`running 드로우콜 ${s500.draws} (≤39 기대)`);
     return errs.length ? errs.join('; ') : true;
