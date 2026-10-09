@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BASE, run, check, sleep, tid, getRaw, open, fixtureRaw } from './_lib.mjs';
+import { BASE, run, check, note, sleep, tid, getRaw, open, fixtureRaw } from './_lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FW = '[data-testid="future-word"]';
@@ -123,15 +123,22 @@ const sampler = async () => {
 await run(async (browser) => {
   // ========== M11-1 터널: 회전 속도·별 포함 드로우콜 ==========
   await check('M11-1. 터널: 1초 회전 0.35~0.45rad(|Δrot|), stage4 드로우콜 ≤39·M10(27) 대비 +1~5, 대조(0·1.2) 실패', async () => {
-    const { ctx, page } = await open(browser, { seed: seed4 });
-    await sleep(600);
-    await page.click(tid('tab-manage'));
-    await waitMounted(page);
-    await sleep(300);
-    const stage = await attrOf(page, CARD, 'data-stage');
-    const draws = parseInt(await attrOf(page, CARD, 'data-rt-draws'), 10);
-    // 진단(M12 진행자): 전체 실행 중 1회 draws 가 사라짐(장면이 해체됨) — 다시 나오면 원인을 보이게 render 모드·quality 를 같이 적는다
-    const diag = Number.isNaN(draws) ? await page.evaluate(() => { const c = document.querySelector('[data-testid="char-card"]'); return { render: c && c.getAttribute('data-render'), q: c && c.getAttribute('data-rt-quality'), canvas: !!document.querySelector('[data-testid="char-canvas"]') }; }) : null;
+    // 진단(M12 진행자): 전체 실행 중 바쁠 때 draws 가 사라지는 일(장면 해체)이 2번 — 같은 오류 2번이라 방법 바꿈(포털 작업 진행자):
+    // 사라지면 원인(render 모드·quality·캔버스 유무)을 note 로 남기고 새 컨텍스트에서 1번만 다시 연다. 두 번째도 사라지면 실패.
+    let ctx, page, stage, draws, diag = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      ({ ctx, page } = await open(browser, { seed: seed4 }));
+      await sleep(600);
+      await page.click(tid('tab-manage'));
+      await waitMounted(page);
+      await sleep(300);
+      stage = await attrOf(page, CARD, 'data-stage');
+      draws = parseInt(await attrOf(page, CARD, 'data-rt-draws'), 10);
+      diag = Number.isNaN(draws) ? await page.evaluate(() => { const c = document.querySelector('[data-testid="char-card"]'); return { render: c && c.getAttribute('data-render'), q: c && c.getAttribute('data-rt-quality'), canvas: !!document.querySelector('[data-testid="char-canvas"]') }; }) : null;
+      if (!diag) break;
+      note('M11-1 장면 해체 진단(다시 시도): ' + JSON.stringify(diag));
+      if (attempt === 0) await ctx.close();
+    }
     const spin = await page.evaluate(async () => {
       const r0 = window.RT3D.getState().tunnel.rot; const t0 = performance.now();
       await new Promise((r) => setTimeout(r, 1000));

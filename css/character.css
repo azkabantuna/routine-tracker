@@ -136,6 +136,8 @@ body:has(#screen-manage:not([hidden])) { overflow-y: hidden; }
   box-shadow: none;
 }
 .fw-word[data-empty="1"] { color: var(--c-text2); font-weight: 700; }
+/* 미래 포털(3D 일 때만 host 에 data-rt-bg 가 붙는다) 단어 글자색: #B8470F */
+[data-rt-bg="clear"] .fw-word:not([data-empty="1"]) { color: #B8470F; }
 .fw-edit { display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: var(--r-pill); background: var(--c-card); box-shadow: var(--sh-float); }
 .fw-input {
   width: 128px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border: 2px solid var(--c-future-soft); border-radius: var(--r-pill);
