@@ -12,7 +12,7 @@ const CARD = '[data-testid="char-card"]';
 const CANVAS = '[data-testid="char-canvas"]';
 const FWKEY = 'routineFutureWord';
 // M10(HEAD 9dbbb39, 기록 시점 측정) stage4 드로우콜 27. 이 값은 옛 기록에서 옮긴 기준(시험 안에서 git 을 읽지 않음).
-const M10_DRAWS_STAGE4 = 27;
+const M10_DRAWS_STAGE4 = 30; // R1 조형(스카프 매듭·꼬리 2 + 배낭 덮개 1)으로 캐릭터 자체 메시 +3: 27→30. 터널 몫(+1~5) 기준은 그대로.
 const TWO_PI = Math.PI * 2;
 
 const logs4 = {};
