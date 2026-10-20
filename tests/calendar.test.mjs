@@ -31,14 +31,14 @@ const allowedOnly = (props, allowed) => props.every((p) => allowed.includes(p));
 
 await run(async (browser) => {
   // ---- 1. 탭 구성 ----
-  await check('1. 탭 4개: 오늘·캘린더·루틴 관리·타이머 순서, 2번째 전환 시 aria-selected·화면 전환, 옛 #screen-log 없음', async () => {
+  await check('1. 탭 4개: 오늘·캘린더·퓨처 셀프·타이머 순서, 2번째 전환 시 aria-selected·화면 전환, 옛 #screen-log 없음', async () => {
     const { ctx, page } = await open(browser, { seed: fixtureRaw, settle: 300 });
     const tabs = await page.locator('nav.tabbar [role="tab"]').all();
     const ids = [], labels = [];
     for (const t of tabs) { ids.push(await t.getAttribute('data-testid')); labels.push((await t.innerText()).replace(/\s+/g, ' ').trim()); }
     const errs = [];
     if (ids.join('|') !== 'tab-today|tab-calendar|tab-manage|tab-timer') errs.push('순서 ' + ids.join('|'));
-    if (!/오늘/.test(labels[0]) || !/캘린더/.test(labels[1]) || !/루틴 관리/.test(labels[2]) || !/타이머/.test(labels[3])) errs.push('이름 ' + labels.join('|'));
+    if (!/오늘/.test(labels[0]) || !/캘린더/.test(labels[1]) || !/퓨처 셀프/.test(labels[2]) || !/타이머/.test(labels[3])) errs.push('이름 ' + labels.join('|'));
     await page.locator(tid('tab-calendar')).click();
     await sleep(450);
     if ((await page.locator(tid('tab-calendar')).getAttribute('aria-selected')) !== 'true') errs.push('aria-selected 안 바뀜');
@@ -306,17 +306,17 @@ await run(async (browser) => {
   });
 
   // ---- 15. 1번·3번 탭 ----
-  await check('15. 오늘·루틴 관리 탭은 그대로: 오늘에 카드 3개, 관리에 항목 3개, 캘린더를 다녀와도 같음', async () => {
+  await check('15. 오늘·퓨처 셀프 탭: 오늘에 카드 3개, 퓨처 셀프엔 3D 마운트 1개·관리 목록 0개, 캘린더를 다녀와도 같음', async () => {
     const { ctx, page } = await open(browser, { seed: fixtureRaw, settle: 300 });
     const errs = [];
     const todayCards = await page.locator(tid('routine-card')).count();
     await page.locator(tid('tab-calendar')).click(); await sleep(450);
     await page.locator(tid('tab-manage')).click(); await sleep(450);
-    const manage = await page.locator(tid('manage-item')).count();
+    const manage = (await page.locator(tid('char-mount')).count()) === 1 && (await page.locator(tid('manage-item')).count()) === 0;
     await page.locator(tid('tab-today')).click(); await sleep(450);
     const todayAgain = await page.locator(tid('routine-card')).count();
     if (todayCards !== FIX.routines.length) errs.push('오늘 카드 ' + todayCards);
-    if (manage !== FIX.routines.length) errs.push('관리 항목 ' + manage);
+    if (!manage) errs.push('퓨처 셀프 탭: char-mount 1개·manage-item 0개 아님');
     if (todayAgain !== todayCards) errs.push('다녀온 뒤 카드 ' + todayAgain);
     await ctx.close();
     return errs.length ? errs.join('; ') : true;

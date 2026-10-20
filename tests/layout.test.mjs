@@ -1,47 +1,16 @@
 // 가로 스크롤·시트 닿음·토스트 크기·아래 여백·스크립트 순서 시험 (css/*.css·index.html)
 // 실행(레포 루트에서): node projects/routine-tracker/tests/layout.test.mjs   (서버는 run.mjs 가 켜 주거나, 직접: cd projects/routine-tracker && python3 -m http.server 8080)
-import { consoleErrors, run, check, note, sleep, tid, open, addRoutine, noHScroll, openAddSheet, openManagePanel, seedN, SEED_EMO, SEED_2 } from './_lib.mjs';
+import { consoleErrors, run, check, note, sleep, tid, open, addRoutine, noHScroll, openAddSheet, seedN, SEED_EMO, SEED_2 } from './_lib.mjs';
 
   const geom = (page, screenSel, isManage = false) => page.evaluate(({ sel, isManage }) => {
     const iw = window.innerWidth; const tabbarTop = document.querySelector('.tabbar').getBoundingClientRect().top;
     const out = { sw: 0, clip: [], overlap: [], tabbarTop };
 
     if (isManage) {
-      // 관리 탭: 패널 안만 검사
-      const panel = document.querySelector('[data-testid="manage-panel"]');
-      if (!panel) return out;
-      out.sw = panel.scrollWidth - panel.clientWidth;
-
-      // 패널 내용 잘림 검사 (숨김 제목 제외)
-      panel.querySelectorAll('*').forEach((el) => {
-        if (getComputedStyle(el).display === 'none') return;
-        const classList = el.className;
-        if (classList && classList.includes('manage-title-hidden')) return; // 숨김 제목 제외
-
-        const r = el.getBoundingClientRect();
-        if (r.width === 0 || r.height === 0) return;
-        const panelRect = panel.getBoundingClientRect();
-        if (r.left < panelRect.left - 0.5 || r.right > panelRect.right + 0.5)
-          out.clip.push((className || el.tagName) + ' ' + Math.round(r.left) + '~' + Math.round(r.right));
-        if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible')
-          out.clip.push('내용 잘림 ' + (el.className || el.tagName));
-      });
-
-      // 겹침 검사
-      const boxes = (q) => [...panel.querySelectorAll(q)].map((e) => e.getBoundingClientRect());
-      const inter = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
-      for (const q of ['.level-btn', '[data-testid="manage-item"]']) {
-        const b = boxes(q);
-        for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) if (inter(b[i], b[j])) out.overlap.push(q + ' ' + i + '/' + j);
-      }
-
-      // 마지막 manage-item과 탭바의 gap 계산
-      const items = panel.querySelectorAll('[data-testid="manage-item"]');
-      // 실제 스크롤 칸은 패널 본문(.manage-panel-body). 끝까지 내린 뒤 잰다
-      const body = panel.querySelector('.manage-panel-body') || panel;
-      body.scrollTop = body.scrollHeight;
-      out.items = items.length;
-      out.gap = items.length ? tabbarTop - items[items.length - 1].getBoundingClientRect().bottom : null;
+      // 퓨처 셀프 탭: 패널·목록 없음(3D 장면만). 가로 스크롤·manage-item/panel 0개만 본다
+      out.sw = document.documentElement.scrollWidth - iw;
+      if (document.querySelector('[data-testid="manage-panel"],[data-testid="manage-item"]')) out.clip.push('manage-panel/manage-item 남음');
+      out.gap = null;
     } else {
       // 오늘 탭: 기존 로직
       out.sw = document.documentElement.scrollWidth - iw;
@@ -62,6 +31,14 @@ import { consoleErrors, run, check, note, sleep, tid, open, addRoutine, noHScrol
       window.scrollTo(0, document.documentElement.scrollHeight);
       out.items = items.length;
       out.gap = items.length ? tabbarTop - items[items.length - 1].getBoundingClientRect().bottom : null;
+      // '+ 루틴 추가'는 목록 아래, 탭바에 가리지 않고 마지막 카드와 겹치지 않음
+      const add = root.querySelector('[data-testid="btn-add-routine"]');
+      if (!add) out.clip.push('btn-add-routine 없음');
+      else {
+        const ar = add.getBoundingClientRect();
+        out.gap = tabbarTop - ar.bottom;
+        if (items.length && ar.top < items[items.length - 1].getBoundingClientRect().bottom - 0.5) out.overlap.push('add/마지막카드');
+      }
     }
     return out;
   }, { sel: screenSel, isManage });
@@ -148,8 +125,6 @@ await run(async (browser) => {
           if (tab !== 'today') {
             await page.click(tid('tab-' + tab));
             await sleep(500);
-            await openManagePanel(page);
-            await sleep(450); // 패널이 올라오는 전환(약 300ms)이 끝난 뒤
           }
           const g = await geom(page, sel, tab === 'manage');
           const tag = `${viewport.width}x${viewport.height} ${tab} ${n}개`;
@@ -157,7 +132,7 @@ await run(async (browser) => {
           if (g.sw > 0) errs.push(tag + ' 가로 스크롤 ' + g.sw);
           if (g.clip.length) errs.push(tag + ' 잘림 ' + g.clip.slice(0, 3));
           if (g.overlap.length) errs.push(tag + ' 겹침 ' + g.overlap.slice(0, 3));
-          if (!(g.gap >= 16)) errs.push(tag + ' 마지막 카드~탭바 ' + g.gap);
+          if (tab === 'today' && !(g.gap >= 16)) errs.push(tag + ' 추가 버튼~탭바 ' + g.gap);
         }
         if (n === 6) {
           await page.click(tid('tab-today')); await sleep(500);

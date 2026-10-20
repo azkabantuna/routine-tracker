@@ -58,6 +58,7 @@
 
         <p class="today-hint" id="today-hint" data-testid="today-hint" hidden>하나만 해도 완료! mini 도 미래의 나를 만든다</p>
         <ul class="card-list" id="card-list"></ul>
+        <button type="button" class="btn btn-primary btn-block add-routine" data-testid="btn-add-routine" id="btn-add-routine">+ 루틴 추가</button>
       </section>
 
       <!-- 2. 캘린더 (저장된 기록을 읽기만 함) -->
@@ -80,20 +81,10 @@
         <div class="cal-detail" data-testid="cal-detail" aria-live="polite"></div>
       </section>
 
-      <!-- 3. 루틴 관리 -->
+      <!-- 3. 퓨처 셀프 (3D 장면만. 루틴 수정·삭제는 오늘 탭 카드 길게 누르기) -->
       <section class="screen" id="screen-manage" data-screen="manage" aria-labelledby="manage-title" hidden>
-        <h1 class="screen-title manage-title-hidden" id="manage-title">루틴 관리</h1>
+        <h1 class="screen-title manage-title-hidden" id="manage-title">퓨처 셀프</h1>
         <div class="char-mount" data-testid="char-mount" id="char-mount"></div>
-        <div class="manage-panel" data-testid="manage-panel" id="manage-panel" data-open="0">
-          <div class="manage-panel-head">
-            <button type="button" class="manage-panel-toggle" data-testid="manage-panel-toggle" id="manage-panel-toggle" aria-expanded="false" aria-controls="manage-panel-body"><span class="manage-grip" aria-hidden="true"></span><span>내 루틴</span></button>
-            <button type="button" class="btn btn-primary" data-testid="btn-add-routine" id="btn-add-routine">+ 루틴 추가</button>
-          </div>
-          <div class="manage-panel-body" id="manage-panel-body">
-            <p class="manage-empty" id="manage-empty" hidden>아직 루틴이 없어요. 위 버튼으로 추가해 보세요.</p>
-            <ul class="manage-list" id="manage-list"></ul>
-          </div>
-        </div>
       </section>
 
       <!-- 4. 타이머 (저장은 routineTimer 하나뿐) -->
@@ -151,7 +142,7 @@
         <span class="tab-icon" aria-hidden="true">📅</span><span>캘린더</span>
       </button>
       <button type="button" class="tab" role="tab" data-tab="manage" data-testid="tab-manage" aria-selected="false">
-        <span class="tab-icon" aria-hidden="true">📝</span><span>루틴 관리</span>
+        <span class="tab-icon" aria-hidden="true">📝</span><span>퓨처 셀프</span>
       </button>
       <button type="button" class="tab" role="tab" data-tab="timer" data-testid="tab-timer" aria-selected="false">
         <span class="tab-icon" aria-hidden="true">⏱️</span><span>타이머</span>

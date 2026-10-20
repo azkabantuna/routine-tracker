@@ -124,17 +124,49 @@ export async function open(browser, { seed = null, reduced = false, viewport = {
 }
 
 // ---------- 화면 조작 도우미 ----------
-export async function openManagePanel(page) {
-  const panel = page.locator(tid('manage-panel'));
-  const isOpen = await panel.getAttribute('data-open');
-  if (isOpen !== '1') {
-    await page.locator(tid('manage-panel-toggle')).click();
-    await sleep(100);
+// 오늘 탭으로 가서 '+ 루틴 추가'(카드 목록 아래) 누르기
+export async function goToday(page) {
+  if ((await page.locator(tid('tab-today')).getAttribute('aria-selected')) !== 'true') {
+    await page.click(tid('tab-today'));
+    await sleep(350);
   }
 }
+// 오늘 탭 카드를 길게 눌러(마우스 600ms) card-menu 열기. id 없으면 첫 카드
+export async function openCardMenu(page, id) {
+  await goToday(page);
+  const card = id ? page.locator(`${tid('routine-card')}[data-routine-id="${id}"]`) : page.locator(tid('routine-card')).first();
+  const box = await card.locator('.card-name').boundingBox();
+  await page.mouse.move(box.x + 6, box.y + box.height / 2);
+  await page.mouse.down();
+  await sleep(650);
+  await page.mouse.up();
+  await page.locator(tid('card-menu')).waitFor({ state: 'visible' });
+  return card;
+}
+// 진짜 터치(CDP)로 locator 한 점을 ms 동안 누르기. 누른 자리는 left px 안쪽
+export async function touchHold(page, locator, ms = 650, dx = 6) {
+  const box = await locator.boundingBox();
+  const x = box.x + dx, y = box.y + box.height / 2;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  await sleep(ms);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+}
+// 터치로 카드 길게 눌러 card-menu 열기
+export async function openCardMenuTouch(page, id) {
+  await goToday(page);
+  const card = id ? page.locator(`${tid('routine-card')}[data-routine-id="${id}"]`) : page.locator(tid('routine-card')).first();
+  await touchHold(page, card.locator('.card-name'), 650);
+  await page.locator(tid('card-menu')).waitFor({ state: 'visible' });
+  return card;
+}
+export async function editRoutineVia(page, id) {
+  await openCardMenu(page, id);
+  await page.locator(tid('btn-card-edit')).click();
+}
 export async function addRoutine(page, { name, mini = '', more = '', max = '' }) {
-  await page.click(tid('tab-manage'));
-  await openManagePanel(page);
+  await goToday(page);
   await page.click(tid('btn-add-routine'));
   await page.fill(tid('input-name'), name);
   await page.fill(tid('input-mini'), mini);
@@ -143,9 +175,13 @@ export async function addRoutine(page, { name, mini = '', more = '', max = '' })
   await page.click(tid('btn-save'));
   await page.click(tid('tab-today'));
 }
+// 오늘 화면이 숨겨진 채(다른 탭)로 시트만 열기: 숨은 화면에 카드가 생기는 경우를 시험할 때
+export async function openAddSheetHidden(page) {
+  await page.evaluate(() => window.RT.sheets.openSheet(null));
+  await page.locator(tid('sheet')).waitFor({ state: 'visible' });
+}
 export async function openAddSheet(page) {
-  await page.locator(tid('tab-manage')).click();
-  await openManagePanel(page);
+  await goToday(page);
   await page.locator(tid('btn-add-routine')).click();
   await page.locator(tid('sheet')).waitFor({ state: 'visible' });
 }
@@ -160,9 +196,8 @@ export async function submitSheet(page, name, emoji) {
   }));
 }
 export async function openConfirm(page, id) {
-  await page.click(tid('tab-manage'));
-  await openManagePanel(page);
-  await page.locator(`${tid('manage-item')}[data-routine-id="${id}"] ${tid('btn-delete')}`).click();
+  await openCardMenu(page, id);
+  await page.locator(tid('btn-card-delete')).click();
 }
 export const countNow = (page) => page.evaluate(() => {
   const all = [...document.querySelectorAll('.celebrate')];

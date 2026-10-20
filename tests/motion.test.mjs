@@ -1,6 +1,6 @@
 // 움직임 시험: 누름감·튕김, 탭 전환, 카드 등장·팝·퇴장, 스타일시트 움직임 검사, 움직임 줄이기 (effects 의 축포는 effects.test.mjs)
 // 실행(레포 루트에서): node projects/routine-tracker/tests/motion.test.mjs   (서버는 run.mjs 가 켜 주거나, 직접: cd projects/routine-tracker && python3 -m http.server 8080)
-import { consoleErrors, fs, path, HERE, run, check, note, sleep, tid, getStore, open, openConfirm, scaleOf, pct, seedN, fixtureRaw, SEED2, SEED3 } from './_lib.mjs';
+import { consoleErrors, fs, path, HERE, run, check, note, sleep, tid, getStore, open, openConfirm, openAddSheetHidden, scaleOf, pct, seedN, fixtureRaw, SEED2, SEED3 } from './_lib.mjs';
 
 const SEED3N = seedN(3);
 const SCREENS = ['today', 'calendar', 'manage'];
@@ -89,7 +89,6 @@ await run(async (browser) => {
     const { ctx, page } = await open(browser, { seed: SEED2 });
     const errs = [];
     errs.push(...(await pressFeel(page, '.level-btn', '.level-btn', { reduced: false })));
-    await page.click(tid('tab-manage'));
     errs.push(...(await pressFeel(page, tid('btn-add-routine'), '.btn', { reduced: false })));
     await page.click(tid('btn-close'));
     errs.push(...(await pressFeel(page, tid('tab-calendar'), '.tab', { reduced: false })));
@@ -102,7 +101,6 @@ await run(async (browser) => {
     const errs = []; const notes = [];
     let r = await overshoot(page, '.level-btn', null);
     notes.push('level-btn ' + r.note); if (!r.ok) errs.push('.level-btn 오버슈트 못 봄: ' + r.note);
-    await page.click(tid('tab-manage'));
     r = await overshoot(page, tid('btn-add-routine'), async () => { await page.click(tid('btn-close')); });
     notes.push('btn ' + r.note); if (!r.ok) errs.push('.btn 오버슈트 못 봄: ' + r.note);
     r = await overshoot(page, tid('tab-calendar'), null);
@@ -120,7 +118,8 @@ await run(async (browser) => {
     const first = await page.evaluate(() => ({ n: document.querySelectorAll('[data-anim]').length, log: window.__animLog.slice() }));
     if (first.n !== 0 || first.log.length) errs.push('첫 로드 data-anim: ' + JSON.stringify(first));
     await page.click(tid('tab-manage'));
-    await page.click(tid('btn-add-routine'));
+    await sleep(450); // 탭 전환(320ms)이 끝나 오늘 화면이 완전히 숨겨진 뒤
+    await openAddSheetHidden(page); // 오늘 화면이 숨겨진 동안 생긴 카드
     await page.fill(tid('input-name'), '새 루틴');
     await page.click(tid('btn-save'));
     const hiddenPhase = await page.evaluate(() => document.querySelectorAll('[data-anim]').length);
@@ -213,7 +212,7 @@ await run(async (browser) => {
     if (a !== null) errs.push('reduce 팝 data-anim=' + a);
     // 추가: enter 없음
     await page.click(tid('tab-manage'));
-    await page.click(tid('btn-add-routine'));
+    await openAddSheetHidden(page);
     await page.fill(tid('input-name'), '새 루틴');
     await page.click(tid('btn-save'));
     await page.click(tid('tab-today'));
@@ -383,6 +382,7 @@ await run(async (browser) => {
     for (let attempt = 1; attempt <= 3; attempt++) {
       const loc = page.locator(sel).first();
       await loc.scrollIntoViewIfNeeded();
+      await loc.evaluate((el) => el.scrollIntoView({ block: 'center' })); // 고정 탭바에 가리지 않게 (추가 버튼은 목록 아래)
       const box = await loc.boundingBox();
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       await sleep(400);
@@ -420,6 +420,7 @@ await run(async (browser) => {
     }
     // 결정적 확인: btn-bounce 를 currentTime=136 으로 두고 transform 읽기 + 실행 중 animationName
     const loc = page.locator(sel).first();
+    await loc.evaluate((el) => el.scrollIntoView({ block: 'center' }));
     const box = await loc.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await sleep(400);
@@ -444,7 +445,6 @@ await run(async (browser) => {
     const errs = [];
     const rows = [];
     rows.push(await pressNumbers(page, '[data-routine-id="r_1"] .level-btn', '.level-btn', null));
-    await page.click(tid('tab-manage')); await sleep(500);
     rows.push(await pressNumbers(page, tid('btn-add-routine'), '.btn', async () => { await page.click(tid('btn-close')); await sleep(300); }));
     rows.push(await pressNumbers(page, tid('tab-calendar'), '.tab', null));
     for (const r of rows) {

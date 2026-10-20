@@ -1,7 +1,7 @@
 // 성장 캐릭터 시험: XP·레벨·단계, 저장 불변, 실시간 반영, 레벨업 연출, 부드러움, 교체, 회귀
 // 실행(레포 루트에서): node projects/routine-tracker/tests/character.test.mjs
 import assert from 'node:assert';
-import { BASE, run, check, note, sleep, tid, getRaw, getStore, open, fixtureRaw, consoleErrors, externalRequests, KEY } from './_lib.mjs';
+import { BASE, run, check, note, sleep, tid, getRaw, getStore, open, fixtureRaw, consoleErrors, externalRequests, KEY, openConfirm, touchHold } from './_lib.mjs';
 
 await run(async (browser) => {
   // ========== 1. 옛 시드 데이터 검사 ==========
@@ -441,49 +441,31 @@ await run(async (browser) => {
   });
 
   // 루틴 기능 검사
-  await check('M5-4. 루틴 기능: 패널 data-open 0↔1, 토글 높이≥44, 추가/삭제 동작, 닫혀도 손잡이 보임', async () => {
+  await check('M5-4. 루틴 기능(새 흐름): 퓨처 셀프 탭엔 패널·목록 없음, 오늘 탭에서 추가·길게 눌러 삭제, 추가 버튼 높이≥44', async () => {
     const { ctx, page } = await open(browser, { seed: fixtureRaw });
     await sleep(600);
     await page.click(tid('tab-manage'));
     await sleep(400);
-
-    const panel = page.locator(tid('manage-panel'));
-    const toggle = page.locator(tid('manage-panel-toggle'));
-    let open0 = await panel.getAttribute('data-open');
-    const toggleH = await toggle.evaluate((el) => el.getBoundingClientRect().height);
-
-    // 패널 열기
-    await toggle.click();
-    await sleep(100);
-    const open1 = await panel.getAttribute('data-open');
-
-    // 루틴 추가 (btn-add-routine이 있으면)
-    const beforeCount = await page.locator(tid('manage-item')).count();
-    const addBtn = page.locator(tid('btn-add-routine'));
-    if (await addBtn.isVisible()) {
-      await addBtn.click();
-      await sleep(100);
-      await page.fill(tid('input-name'), '시험 루틴');
-      const saveBtn = page.locator(tid('btn-save'));
-      if (await saveBtn.isVisible()) await saveBtn.click();
-      await sleep(200);
-    }
-    const afterCount = await page.locator(tid('manage-item')).count();
-
-    // 패널 닫기
-    await toggle.click();
-    await sleep(100);
-    const open2 = await panel.getAttribute('data-open');
-    const toggleVisible = await toggle.isVisible();
-
-    await ctx.close();
     const errs = [];
-    if (open0 !== '0' && open0 !== '1') errs.push(`초기 data-open=${open0}`);
-    if (toggleH < 44) errs.push(`토글 높이=${toggleH} (<44)`);
-    if (open1 !== '1') errs.push(`열기 후 data-open=${open1}`);
-    if (open2 !== '0') errs.push(`닫기 후 data-open=${open2}`);
-    if (!toggleVisible) errs.push('닫혔을 때 토글 안 보임');
-    if (beforeCount >= 0 && afterCount > beforeCount) note(`루틴 추가: ${beforeCount}→${afterCount}`);
+    if ((await page.locator(tid('manage-panel')).count()) !== 0) errs.push('manage-panel 남음');
+    if ((await page.locator(tid('manage-item')).count()) !== 0) errs.push('manage-item 남음');
+    if ((await page.locator(tid('char-mount')).count()) !== 1) errs.push('char-mount 1개 아님');
+    await page.click(tid('tab-today'));
+    await sleep(400);
+    const beforeCount = await page.locator(tid('routine-card')).count();
+    const addBtn = page.locator(tid('btn-add-routine'));
+    const addH = await addBtn.evaluate((el) => el.getBoundingClientRect().height);
+    if (addH < 44) errs.push(`추가 버튼 높이=${addH}`);
+    await addBtn.click();
+    await sleep(100);
+    await page.fill(tid('input-name'), '시험 루틴');
+    await page.locator(tid('btn-save')).click();
+    await sleep(500);
+    const afterCount = await page.locator(tid('routine-card')).count();
+    if (afterCount !== beforeCount + 1) errs.push(`추가 ${beforeCount}→${afterCount}`);
+    await openConfirm(page, null);
+    await page.locator(tid('btn-cancel-delete')).click();
+    await ctx.close();
     return errs.length ? errs.join('; ') : true;
   });
 
@@ -553,7 +535,7 @@ await run(async (browser) => {
   await check('M5-6-touch. 진짜 터치로 루틴 추가/삭제: 터치 입력 동작', async () => {
     const { ctx, page } = await open(browser, { seed: fixtureRaw, hasTouch: true });
     await sleep(600);
-    const before = await page.locator(tid('manage-item')).count();
+    const before = await page.locator(tid('routine-card')).count();
     await ctx.close();
     return before >= 0 ? true : '루틴 읽기 실패';
   });
@@ -574,20 +556,22 @@ await run(async (browser) => {
       await page.tap(tid('tab-manage')); await sleep(500);
       const back = await card.getAttribute('data-frameloop');
       if (away !== 'never' || back !== 'always') errs.push(`frameloop 캘린더=${away} 복귀=${back}`);
-      // 터치로 추가
-      const before = await page.locator(tid('manage-item')).count();
-      if ((await page.locator(tid('manage-panel')).getAttribute('data-open')) !== '1') { await page.tap(tid('manage-panel-toggle')); await sleep(450); }
+      // 터치로 추가 (오늘 탭 '+ 루틴 추가')
+      await page.tap(tid('tab-today')); await sleep(500);
+      const before = await page.locator(tid('routine-card')).count();
       await page.tap(tid('btn-add-routine'));
       await page.locator(tid('sheet')).waitFor({ state: 'visible' });
       await page.fill(tid('input-name'), '스트레칭');
       await page.tap(tid('btn-save')); await sleep(400);
-      const added = await page.locator(tid('manage-item')).count();
+      const added = await page.locator(tid('routine-card')).count();
       if (added !== before + 1) errs.push(`추가 ${before}→${added}`);
-      // 터치로 삭제(방금 추가한 것)
-      const last = page.locator(tid('manage-item')).last();
-      await last.locator(tid('btn-delete')).tap();
+      // 터치로 삭제(방금 추가한 것): 카드 길게 누르기 → 삭제 → 확인
+      const lastCard = page.locator(tid('routine-card')).last();
+      await touchHold(page, lastCard.locator('.card-name'), 650);
+      await page.locator(tid('card-menu')).waitFor({ state: 'visible' });
+      await page.locator(tid('btn-card-delete')).tap();
       await page.tap(tid('btn-confirm-delete')); await sleep(500);
-      const after = await page.locator(tid('manage-item')).count();
+      const after = await page.locator(tid('routine-card')).count();
       if (after !== before) errs.push(`삭제 ${added}→${after}`);
       // 옛 기록 그대로 (logs 부분 비교)
       const logsNow = JSON.stringify(JSON.parse(await getRaw(page)).logs);

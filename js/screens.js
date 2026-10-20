@@ -1,6 +1,6 @@
 window.RT = window.RT || {};
 
-// 화면: 요소 찾기, 안내(배너·토스트), 움직임 도우미, 오늘·루틴 관리 그리기, 강도 버튼 처리.
+// 화면: 요소 찾기, 안내(배너·토스트), 움직임 도우미, 오늘 그리기·카드 길게 누르기 메뉴, 강도 버튼 처리.
 // 사용자 글자(루틴 이름·기준)는 모두 textContent 로만 넣는다.
 (function (RT) {
   var store = RT.store;
@@ -19,8 +19,6 @@ window.RT = window.RT || {};
     progressFill: $('progress-fill'),
     emptyState: $('empty-state'),
     cardList: $('card-list'),
-    manageList: $('manage-list'),
-    manageEmpty: $('manage-empty'),
     backdrop: $('sheet-backdrop'),
     sheet: $('sheet'),
     sheetTitle: $('sheet-title'),
@@ -119,6 +117,7 @@ window.RT = window.RT || {};
     delete pendingEnter[id];
     if (li.__animTimer) { clearTimeout(li.__animTimer); li.__animTimer = null; }
     li.removeAttribute('data-anim');
+    if (li === menuCard) closeCardMenu(false);
     li.setAttribute('data-leaving', 'true');
     li.setAttribute('aria-hidden', 'true');
     if (reduced()) {
@@ -227,6 +226,8 @@ window.RT = window.RT || {};
     li.className = 'card';
     li.setAttribute('data-testid', 'routine-card');
     li.setAttribute('data-routine-id', r.id);
+    li.setAttribute('data-menu-open', '0');
+    li.tabIndex = 0;
 
     var head = document.createElement('div');
     head.className = 'card-head';
@@ -239,6 +240,14 @@ window.RT = window.RT || {};
     var name = document.createElement('h2');
     name.className = 'card-name';
     head.appendChild(name);
+    var more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'btn btn-small card-more';
+    more.setAttribute('data-testid', 'btn-card-more');
+    more.setAttribute('aria-label', '루틴 메뉴 열기');
+    more.setAttribute('aria-haspopup', 'menu');
+    more.textContent = '…';
+    head.appendChild(more);
     li.appendChild(head);
 
     var row = document.createElement('div');
@@ -313,63 +322,138 @@ window.RT = window.RT || {};
     if (result && RT.effects) RT.effects.celebrate({ level: result, x: cx, y: cy, up: true, emoji: r.emoji || '' }); // 취소는 효과 없음
   });
 
-  // ---------- 루틴 관리 화면 ----------
-  function renderManage() {
-    var routines = store.getRoutines();
-    var frag = document.createDocumentFragment();
-    routines.forEach(function (r) {
-      var li = document.createElement('li');
-      li.className = 'manage-item';
-      li.setAttribute('data-testid', 'manage-item');
-      li.setAttribute('data-routine-id', r.id);
+  // ---------- 카드 메뉴 (길게 누르기 500ms · … 버튼 · 메뉴 키/Shift+F10 · 우클릭) ----------
+  var LONG_MS = 500;
+  var MOVE_CANCEL = 10;          // px: 이만큼 움직이면 길게 누르기 취소
+  var menuEl = null;             // 열려 있는 card-menu (하나뿐)
+  var menuCard = null;
+  var press = null;              // { timer, x, y, card }
+  var swallowClick = false;      // 길게 눌러 메뉴가 뜬 뒤 손 뗄 때 오는 click 은 버린다
+  var swallowTimer = null;
 
-      var info = document.createElement('div');
-      info.className = 'manage-info';
-      var head = document.createElement('div');
-      head.className = 'manage-head';
-      var memo = document.createElement('span');
-      memo.className = 'manage-emoji';
-      memo.setAttribute('data-testid', 'manage-emoji');
-      memo.setAttribute('aria-hidden', 'true');
-      memo.textContent = r.emoji || '';
-      memo.hidden = !r.emoji;
-      var name = document.createElement('p');
-      name.className = 'manage-name';
-      name.textContent = r.name;
-      head.appendChild(memo);
-      head.appendChild(name);
-      var sub = document.createElement('p');
-      sub.className = 'manage-sub';
-      sub.textContent = [r.mini, r.more, r.max].map(function (t) { return t || '-'; }).join(' / ');
-      info.appendChild(head);
-      info.appendChild(sub);
-
-      var actions = document.createElement('div');
-      actions.className = 'manage-actions';
-      var edit = document.createElement('button');
-      edit.type = 'button';
-      edit.className = 'btn btn-small';
-      edit.setAttribute('data-testid', 'btn-edit');
-      edit.setAttribute('data-action', 'edit');
-      edit.textContent = '수정';
-      var del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'btn btn-small btn-danger';
-      del.setAttribute('data-testid', 'btn-delete');
-      del.setAttribute('data-action', 'delete');
-      del.textContent = '삭제';
-      actions.appendChild(edit);
-      actions.appendChild(del);
-
-      li.appendChild(info);
-      li.appendChild(actions);
-      frag.appendChild(li);
-    });
-    els.manageList.textContent = '';
-    els.manageList.appendChild(frag);
-    els.manageEmpty.hidden = routines.length !== 0;
-    renderCharacter();
+  function closeCardMenu(focusBack) {
+    if (!menuEl) return false;
+    var card = menuCard;
+    if (menuEl.parentNode) menuEl.parentNode.removeChild(menuEl);
+    if (card) card.setAttribute('data-menu-open', '0');
+    menuEl = null; menuCard = null;
+    if (focusBack && card && card.isConnected) {
+      var more = card.querySelector('.card-more');
+      (more || card).focus();
+    }
+    return true;
   }
+
+  // pt: 누른 자리(client 좌표) 또는 null(키보드·… 버튼: 카드 오른쪽 위)
+  function openCardMenu(card, pt, focusFirst) {
+    if (!card || card.getAttribute('data-leaving') === 'true') return;
+    if (menuEl && menuCard === card && !pt) return;
+    closeCardMenu(false);
+    var id = card.getAttribute('data-routine-id');
+    var menu = document.createElement('div');
+    menu.className = 'card-menu';
+    menu.setAttribute('data-testid', 'card-menu');
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', '루틴 메뉴');
+    var edit = document.createElement('button');
+    edit.type = 'button'; edit.className = 'btn btn-small';
+    edit.setAttribute('data-testid', 'btn-card-edit'); edit.setAttribute('role', 'menuitem');
+    edit.textContent = '수정';
+    var del = document.createElement('button');
+    del.type = 'button'; del.className = 'btn btn-small btn-danger';
+    del.setAttribute('data-testid', 'btn-card-delete'); del.setAttribute('role', 'menuitem');
+    del.textContent = '삭제';
+    menu.appendChild(edit); menu.appendChild(del);
+    edit.addEventListener('click', function () {
+      var r = store.getRoutine(id); closeCardMenu(false);
+      if (r) RT.sheets.openSheet(r);
+    });
+    del.addEventListener('click', function () {
+      var r = store.getRoutine(id); closeCardMenu(false);
+      if (r) RT.sheets.openConfirm(r);
+    });
+    card.appendChild(menu);
+    var cr = card.getBoundingClientRect();
+    var w = menu.offsetWidth || 200, h = menu.offsetHeight || 64;
+    // … 버튼 바로 아래, 오른쪽 맞춤(이름을 가리지 않게). 카드 안에 맞추고, 아래가 탭바에 가리면 버튼 위로 뒤집는다.
+    var more = card.querySelector('.card-more');
+    var mr = more ? more.getBoundingClientRect() : { right: cr.right - 8, top: cr.top + 8, bottom: cr.top + 52 };
+    var left = Math.min(Math.max(mr.right - cr.left - w, 4), Math.max(4, cr.width - w - 4));
+    var top = mr.bottom - cr.top + 4;
+    var tabbar = document.querySelector('.tabbar');
+    var limit = (tabbar ? tabbar.getBoundingClientRect().top : window.innerHeight) - 8;
+    if (cr.top + top + h > limit) top = Math.max(4, mr.top - cr.top - h - 4);
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+    menuEl = menu; menuCard = card;
+    card.setAttribute('data-menu-open', '1');
+    if (focusFirst) edit.focus();
+  }
+
+  function cancelPress() {
+    if (press && press.timer) clearTimeout(press.timer);
+    press = null;
+  }
+
+  els.cardList.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    var card = e.target.closest('.card');
+    if (!card || e.target.closest('.card-menu') || e.target.closest('.card-more')) return;
+    if (card.getAttribute('data-leaving') === 'true') return;
+    swallowClick = false;
+    cancelPress();
+    var p = { x: e.clientX, y: e.clientY, card: card, timer: null };
+    p.timer = setTimeout(function () {
+      if (press !== p) return;
+      press = null;
+      swallowClick = true;
+      if (swallowTimer) clearTimeout(swallowTimer);
+      swallowTimer = setTimeout(function () { swallowClick = false; }, 1500);
+      openCardMenu(card, { x: p.x, y: p.y }, false);
+    }, LONG_MS);
+    press = p;
+  });
+  els.cardList.addEventListener('pointermove', function (e) {
+    if (!press) return;
+    if (Math.abs(e.clientX - press.x) > MOVE_CANCEL || Math.abs(e.clientY - press.y) > MOVE_CANCEL) cancelPress();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) {
+    els.cardList.addEventListener(t, cancelPress);
+  });
+  // 길게 눌러 메뉴가 뜬 뒤의 click 은 체크·강도로 가지 않게 막는다 (capture)
+  els.cardList.addEventListener('click', function (e) {
+    if (!swallowClick) return;
+    swallowClick = false;
+    e.stopPropagation(); e.preventDefault();
+  }, true);
+  els.cardList.addEventListener('click', function (e) {
+    var more = e.target.closest('.card-more');
+    if (!more) return;
+    var card = more.closest('.card');
+    if (menuEl && menuCard === card) closeCardMenu(true);
+    else openCardMenu(card, null, true);
+  });
+  // 키보드: 카드 안에서 메뉴 키 / Shift+F10, 마우스 우클릭
+  els.cardList.addEventListener('keydown', function (e) {
+    if (!(e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey))) return;
+    var card = e.target.closest('.card');
+    if (!card) return;
+    e.preventDefault();
+    openCardMenu(card, null, true);
+  });
+  els.cardList.addEventListener('contextmenu', function (e) {
+    var card = e.target.closest('.card');
+    if (!card) return;
+    e.preventDefault();
+    if (menuEl && menuCard === card) return;
+    openCardMenu(card, e.clientX || e.clientY ? { x: e.clientX, y: e.clientY } : null, !(e.clientX || e.clientY));
+  });
+  // 메뉴 바깥을 누르면 닫힘
+  document.addEventListener('pointerdown', function (e) {
+    if (!menuEl) return;
+    if (e.target.closest && (e.target.closest('.card-menu') || e.target.closest('.card-more'))) return;
+    closeCardMenu(false);
+  }, true);
 
   // 캐릭터 카드: 처음 한 번 붙이고, 이후엔 다시 그리기만 (읽기 전용)
   function renderCharacter() {
@@ -380,25 +464,10 @@ window.RT = window.RT || {};
     c.render(store.state);
   }
 
-  els.manageList.addEventListener('click', function (e) {
-    var btn = e.target.closest('button[data-action]');
-    if (!btn) return;
-    var item = btn.closest('[data-routine-id]');
-    var id = item.getAttribute('data-routine-id');
-    var r = store.getRoutine(id);
-    if (!r) return;
-    // 시트·확인창은 나중에 불러오는 파일이라, 누를 때 찾아서 부른다
-    if (btn.getAttribute('data-action') === 'edit') {
-      RT.sheets.openSheet(r);
-    } else {
-      RT.sheets.openConfirm(r);
-    }
-  });
-
   // ---------- 다시 그리기 ----------
   function renderAll() {
     renderToday();
-    renderManage();
+    renderCharacter();
   }
 
   RT.screens = {
@@ -413,7 +482,9 @@ window.RT = window.RT || {};
     flushPendingEnter: flushPendingEnter,
     renderToday: renderToday,
     updateFuture: updateFuture,
-    renderManage: renderManage,
+    renderManage: renderCharacter,
+    closeCardMenu: closeCardMenu,
+    openCardMenu: openCardMenu,
     renderAll: renderAll
   };
 })(window.RT);

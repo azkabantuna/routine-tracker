@@ -110,6 +110,7 @@ window.RT = window.RT || {};
   });
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
+    if (screens.closeCardMenu && screens.closeCardMenu(true)) return;
     if (!els.confirm.hidden) closeConfirm();
     else if (!els.sheet.hidden) closeSheet();
   });

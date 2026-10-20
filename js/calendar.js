@@ -10,7 +10,8 @@ window.RT = window.RT || {};
   var countEl = $('cal-month-count'), detailEl = $('cal-detail');
 
   var view = null;          // {y, m} (m: 0~11)
-  var selected = null;      // 'YYYY-MM-DD' 또는 null
+  var todayMonth = null;    // 마지막 refresh 때의 "오늘의 달" {y, m}
+  var selected = null;     // 'YYYY-MM-DD' 또는 null
   var swallowClick = false; // 밀기 직후 날짜칸 클릭 무시
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -161,7 +162,14 @@ window.RT = window.RT || {};
   }
 
   function refresh() {
-    if (!view) { var n = new Date(); view = { y: n.getFullYear(), m: n.getMonth() }; clearDetail(); }
+    var n = new Date(), ty = n.getFullYear(), tm = n.getMonth();
+    if (!view) { view = { y: ty, m: tm }; clearDetail(); }
+    else if (todayMonth && (todayMonth.y !== ty || todayMonth.m !== tm) &&
+             view.y === todayMonth.y && view.m === todayMonth.m) {
+      // 달이 바뀌었고 보던 달이 "이전 오늘의 달"이면 새 오늘의 달로 (다른 달을 보던 중이면 그대로)
+      view = { y: ty, m: tm }; clearDetail();
+    }
+    todayMonth = { y: ty, m: tm };
     renderStreak();
     renderMonth();
     if (selected) {

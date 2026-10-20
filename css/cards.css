@@ -1,5 +1,5 @@
 /* ---------- 루틴 카드 ---------- */
-.card-list, .manage-list {
+.card-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -115,29 +115,17 @@
   overflow-wrap: anywhere;
 }
 
-/* ---------- 루틴 관리 ---------- */
-.manage-empty { color: var(--c-text2); font-weight: 600; text-align: center; }
-.manage-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--c-card);
-  border-radius: var(--r-l);
-  box-shadow: var(--sh-float);
-  padding: 14px 14px 14px 18px;
-  margin-bottom: 12px;
+/* ---------- 카드 메뉴 (길게 누르기 / … 버튼 / 메뉴 키) ---------- */
+.card { position: relative; -webkit-touch-callout: none; }
+.card-head .card-more { margin: -10px -6px -10px auto; /* 44px 눌림 영역이 카드 머리줄 높이를 키우지 않게 */
+   flex-shrink: 0; min-width: 44px; min-height: 44px; padding: 0 8px; font-size: 22px; line-height: 1; color: var(--c-text2); }
+.card-menu {
+  position: absolute; z-index: 20; display: flex; gap: 8px; padding: 8px;
+  background: var(--c-card); border-radius: var(--r-l); box-shadow: var(--sh-float); border: 2px solid var(--c-line);
 }
-.manage-info { flex: 1; min-width: 0; }
-.manage-head { display: flex; align-items: center; gap: 8px; }
-.manage-emoji {
-  flex-shrink: 0;
-  font-size: 22px;
-  line-height: 1;
-  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-}
-.manage-name { margin: 0; min-width: 0; font-weight: 800; overflow-wrap: anywhere; }
-.manage-sub { margin: 2px 0 0; font-size: 13px; color: var(--c-text2); overflow-wrap: anywhere; }
-.manage-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.card-menu { max-width: calc(100% - 8px); box-sizing: border-box; }
+.card-menu .btn { min-width: 84px; flex: 1 1 auto; }
+.add-routine { margin-top: 4px; }
 
 /* ---------- 아래 탭 ---------- */
 .tabbar {

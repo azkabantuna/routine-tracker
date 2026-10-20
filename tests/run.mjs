@@ -11,26 +11,26 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT = path.resolve(HERE, '..');
-const FEATURES = ['store', 'routines', 'emoji', 'effects', 'motion', 'layout', 'calendar', 'character', 'futureword', 'timer', 'slipstream', 'design', 'portal'];
+const FEATURES = ['store', 'routines', 'emoji', 'effects', 'motion', 'layout', 'calendar', 'character', 'futureword', 'timer', 'slipstream', 'design', 'portal', 'longpress', 'stability'];
 
 // ★ 바뀐 파일 → 돌릴 기능 (표 하나뿐). 표에 없는 파일은 안전하게 전부 돌린다.
 const TABLE = {
   'date.js': ['store', 'routines'],
-  'store.js': ['store', 'routines'],
+  'store.js': ['store', 'routines', 'stability'],
   'routines.js': ['store', 'routines'],
   'emoji.js': ['emoji', 'routines'], // 시트가 이모지 검사를 씀
-  'sheets.js': ['routines', 'emoji'],
+  'sheets.js': ['routines', 'emoji', 'longpress'],
   'effects.js': ['effects', 'design'],
   'effects.css': ['effects', 'design'],
-  'screens.js': ['routines', 'motion', 'layout', 'design'],
-  'app.js': ['routines', 'motion', 'layout', 'calendar', 'timer', 'design'],
-  'index.html': ['routines', 'motion', 'layout', 'calendar', 'timer', 'futureword', 'design'],
-  'timer.js': ['timer'],
+  'screens.js': ['routines', 'motion', 'layout', 'design', 'longpress'],
+  'app.js': ['routines', 'motion', 'layout', 'calendar', 'timer', 'design', 'stability'],
+  'index.html': ['routines', 'motion', 'layout', 'calendar', 'timer', 'futureword', 'design', 'longpress'],
+  'timer.js': ['timer', 'stability'],
   'timer.css': ['timer', 'design'],
   'base.css': ['motion', 'layout', 'design'],
-  'cards.css': ['motion', 'layout', 'design'],
+  'cards.css': ['motion', 'layout', 'design', 'longpress'],
   'overlays.css': ['motion', 'layout', 'design'],
-  'calendar.js': ['calendar'],
+  'calendar.js': ['calendar', 'stability'],
   'calendar.css': ['calendar'],
   'character.js': ['character', 'store'],
   'character.css': ['character', 'layout', 'futureword', 'portal'],
@@ -38,7 +38,7 @@ const TABLE = {
   'character3d.js': ['character', 'layout', 'futureword', 'slipstream', 'portal'],
   'embed.tsx': ['character', 'futureword', 'slipstream', 'portal'], // 원본(character-3d/src) 이 바뀔 때
   'Character.tsx': ['character', 'futureword', 'slipstream', 'portal'],
-  'streak.js': ['store', 'calendar'],
+  'streak.js': ['store', 'calendar', 'stability'],
   '_lib.mjs': FEATURES, // 공용 도우미가 바뀌면 전부
   'run.mjs': ['store'], // 실행기만 바뀜: 간단 확인
   'old-seed.json': ['store'],

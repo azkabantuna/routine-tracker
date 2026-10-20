@@ -1,6 +1,6 @@
 // 이모지 입력·검증·표시 시험 (emoji.js·sheets.js)
 // 실행(레포 루트에서): node projects/routine-tracker/tests/emoji.test.mjs   (서버는 run.mjs 가 켜 주거나, 직접: cd projects/routine-tracker && python3 -m http.server 8080)
-import { run, check, info, sleep, tid, getStore, open, openAddSheet, submitSheet, openManagePanel, SEED_EMO } from './_lib.mjs';
+import { run, check, info, sleep, tid, getStore, open, openAddSheet, submitSheet, editRoutineVia, SEED_EMO } from './_lib.mjs';
 
 const ACCEPT = ['🏃', '👨‍👩‍👧', '🇰🇷', '❤️', '✍️', '👍🏽'];
 const REJECT = ['ab', '🏃🏃', 'a', '🏃a', '1', '#'];
@@ -62,13 +62,13 @@ await run(async (browser) => {
       });
       return ((o.hidden || o.disp === 'none' || o.w === 0) && o.text === '') || JSON.stringify(o);
     });
-    await page.locator(tid('tab-manage')).click();
+    await page.locator(tid('tab-today')).click();
     await sleep(400);
-    await check('1-7 관리 목록 manage-emoji=="🏃" 이고 manage-name 왼쪽·같은 줄', async () => {
+    await check('1-7 오늘 카드 routine-emoji=="🏃" 이고 card-name 왼쪽·같은 줄', async () => {
       const o = await page.evaluate(() => {
-        const it = document.querySelector('[data-testid="manage-item"]');
-        const e = it.querySelector('[data-testid="manage-emoji"]');
-        const n = it.querySelector('[data-testid="manage-name"]') || it.querySelector('.manage-name');
+        const it = document.querySelector('[data-testid="routine-card"]');
+        const e = it.querySelector('[data-testid="routine-emoji"]');
+        const n = it.querySelector('.card-name');
         const a = e.getBoundingClientRect(), b = n.getBoundingClientRect();
         return { text: e.textContent, ex: a.x, ew: a.width, ey: a.y, eh: a.height, nx: b.x, ny: b.y, nh: b.height };
       });
@@ -86,9 +86,7 @@ await run(async (browser) => {
     });
     // 수정에서 이모지 지우기 / 바꾸기
     await check('1-9 수정 시트에서 기존 이모지가 채워지고, 지우면 키 삭제·바꾸면 반영', async () => {
-      await page.locator(tid('tab-manage')).click();
-      await openManagePanel(page);
-      await page.locator(tid('btn-edit')).first().click();
+      await editRoutineVia(page);
       await page.locator(tid('sheet')).waitFor({ state: 'visible' });
       const pre = await page.locator(tid('input-emoji')).inputValue();
       await page.locator(tid('input-emoji')).fill('');
@@ -96,8 +94,7 @@ await run(async (browser) => {
       await sleep(150);
       const s1 = await getStore(page);
       const gone = !('emoji' in s1.routines[0]);
-      await openManagePanel(page);
-      await page.locator(tid('btn-edit')).first().click();
+      await editRoutineVia(page);
       await page.locator(tid('sheet')).waitFor({ state: 'visible' });
       await page.locator(tid('input-emoji')).fill('📚');
       await page.locator(tid('btn-save')).click();

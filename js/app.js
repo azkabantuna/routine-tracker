@@ -32,6 +32,8 @@ window.RT = window.RT || {};
     }
   }
 
+  var lastDayKey = RT.today();
+
   function showTab(name, instant) {
     if (!instant && name === currentTab) return; // 같은 탭 다시 누름: 아무것도 안 함
     var prev = currentTab;
@@ -59,7 +61,12 @@ window.RT = window.RT || {};
     }
 
     target.hidden = false;
-    if (name === 'today' && RT.screens && RT.screens.updateFuture) RT.screens.updateFuture();
+    if (name === 'today') {
+      // 다른 탭에 있는 동안 날짜가 바뀌었으면(자정) 날짜 머리·카드를 새로 그림
+      var dk = RT.today();
+      if (dk !== lastDayKey) { lastDayKey = dk; RT.screens.renderToday(); }
+      if (RT.screens && RT.screens.updateFuture) RT.screens.updateFuture();
+    }
     if (name === 'calendar' && RT.calendar) RT.calendar.refresh(); // 읽기만: 최신 기록으로 다시 그림
     if (instant || reduced() || !prev) {
       if (leaving) leaving.hidden = true;
@@ -89,21 +96,6 @@ window.RT = window.RT || {};
     var tab = e.target.closest('.tab');
     if (tab) showTab(tab.getAttribute('data-tab'));
   });
-
-  // ---------- 관리 패널 열고 닫기 ----------
-  var panel = document.getElementById('manage-panel');
-  var panelToggle = document.getElementById('manage-panel-toggle');
-  if (panel && panelToggle) {
-    var panelBody = document.getElementById('manage-panel-body');
-    // 닫힌 패널 내용은 탭 포커스·터치 불가 (inert), visibility transition 은 쓰지 않음
-    if (panelBody && panel.getAttribute('data-open') !== '1') panelBody.inert = true;
-    panelToggle.addEventListener('click', function () {
-      var open = panel.getAttribute('data-open') !== '1';
-      panel.setAttribute('data-open', open ? '1' : '0');
-      if (panelBody) panelBody.inert = !open;
-      panelToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    });
-  }
 
   // ---------- 버튼 튕김 (뗄 때 한 번 통통) ----------
   var BOUNCE_SEL = '.btn, .level-btn, .tab';

@@ -193,7 +193,7 @@ await run(async (browser) => {
   });
 
   // ========== M11-3 라벨 위치: 구름과 함께, 겹침 0, 크기, 화면 안 ==========
-  const HUD = ['[data-testid="char-level"]', '[data-testid="char-xp"]', '[data-testid="char-next"]', '[data-testid="char-stage-name"]', '[data-testid="char-progress"]', '.char-info', '.tabbar', '[data-testid="manage-panel"]', '.manage-panel-head'];
+  const HUD = ['[data-testid="char-level"]', '[data-testid="char-xp"]', '[data-testid="char-next"]', '[data-testid="char-stage-name"]', '[data-testid="char-progress"]', '.char-info', '.tabbar'];
   for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 640 }]) {
     await check(`M11-3. 라벨 위치 ${vp.width}×${vp.height}: 구름 위 간격 0~20px(아래쪽 ≤ 구름 윗가장자리+2), 가로 중심 구름 x ±20, 크기 ≥44, 화면 안, HUD·패널 머리·탭바 겹침 0, 1초 top 변화 ≥10px, 구름과 같은 y 차이 ±3px, top/left 안 씀`, async () => {
       const { ctx, page } = await open(browser, { seed: fixtureRaw, viewport: vp });

@@ -109,7 +109,8 @@ async function quietScenario(browser) {
   try {
     await enterManage(page);
     await page.evaluate(startSampler);
-    await page.waitForFunction(() => window.__tl.length > 0 && window.__tl[window.__tl.length - 1].t >= 10000, null, { timeout: 20000, polling: 200 });
+    // 고정 시계(setFixedTime) 아래 페이지 performance.now 가 약 0.53배속이라 10초 샘플에 실제 19~20초 걸림 → 대기만 40초(기준 불변)
+    await page.waitForFunction(() => window.__tl.length > 0 && window.__tl[window.__tl.length - 1].t >= 10000, null, { timeout: 40000, polling: 200 });
     const T = await page.evaluate(() => window.__tl);
     const perf = await page.evaluate(() => window.RT3D.getState().perf);
     return { T, perf };

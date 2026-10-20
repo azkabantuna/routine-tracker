@@ -1,6 +1,6 @@
 // 루틴 추가·수정·삭제·강도·확인창 시험 (routines.js·screens.js·sheets.js)
 // 실행(레포 루트에서): node projects/routine-tracker/tests/routines.test.mjs   (서버는 run.mjs 가 켜 주거나, 직접: cd projects/routine-tracker && python3 -m http.server 8080)
-import { run, check, sleep, tid, getStore, open, addRoutine, progress, noHScroll, openAddSheet, submitSheet, openConfirm, openManagePanel, KEY, SEED2, SEED3 } from './_lib.mjs';
+import { run, check, sleep, tid, getStore, open, addRoutine, progress, noHScroll, openAddSheet, submitSheet, openConfirm, editRoutineVia, KEY, SEED2, SEED3 } from './_lib.mjs';
 
 await run(async (browser) => {
   // ---------- (옛 m1) 빈 상태·추가·강도·수정·삭제·새로고침·HTML 안 해석 ----------
@@ -26,7 +26,7 @@ await run(async (browser) => {
   await check('2. 루틴 추가 → 카드·기준 글자 / 빈 이름·공백 이름 저장 안 됨+안내', async () => {
     const errs = [];
     // 빈 이름
-    await page.click(tid('tab-manage'));
+    await page.click(tid('tab-today'));
     for (const bad of ['', '   ']) {
       await page.click(tid('btn-add-routine'));
       await page.fill(tid('input-name'), bad);
@@ -106,9 +106,7 @@ await run(async (browser) => {
   await check('3. 수정 즉시 반영 / 기록 있는 루틴 삭제 → 카드 사라짐·logs 에 id 없음·빈 날짜 없음', async () => {
     const errs = [];
     // 수정
-    await page.click(tid('tab-manage'));
-    await openManagePanel(page);
-    await page.locator(`${tid('manage-item')}[data-routine-id="${idA}"] ${tid('btn-edit')}`).click();
+    await editRoutineVia(page, idA);
     if ((await page.inputValue(tid('input-name'))) !== '운동') errs.push('수정 시 기존 이름 안 채워짐');
     await page.fill(tid('input-name'), '아침 운동');
     await page.fill(tid('input-more'), '30분');
@@ -128,9 +126,7 @@ await run(async (browser) => {
     }, [KEY, idA]);
     await page.reload();
     // 삭제
-    await page.click(tid('tab-manage'));
-    await openManagePanel(page);
-    await page.locator(`${tid('manage-item')}[data-routine-id="${idA}"] ${tid('btn-delete')}`).click();
+    await openConfirm(page, idA);
     await page.click(tid('btn-confirm-delete')); // R1(v2): 화면 안 확인창의 삭제 버튼
     await page.click(tid('tab-today'));
     // R1(v2): 카드 퇴장 연출(≈250ms)이 끝나 DOM 에서 빠질 때까지 기다린 뒤 확인
@@ -216,9 +212,7 @@ await run(async (browser) => {
     await page.click('[data-routine-id="r_a"] [data-level="max"]'); await verify('A 변경');
     await page.click('[data-routine-id="r_a"] [data-level="max"]'); await verify('A 취소');
     // 이름·기준 수정 (관리 탭 → 시트 → 오늘)
-    await page.click(tid('tab-manage'));
-    await openManagePanel(page);
-    await page.locator(`${tid('manage-item')}[data-routine-id="r_b"] ${tid('btn-edit')}`).click();
+    await editRoutineVia(page, 'r_b');
     await page.fill(tid('input-name'), '책 읽기');
     await page.fill(tid('input-more'), '20쪽');
     await page.click(tid('btn-save'));

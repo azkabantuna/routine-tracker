@@ -132,7 +132,7 @@ await run(async (browser) => {
       const s = await styleOf(page, tid('timer-start'));
       return (s && s.color !== 'rgb(255, 255, 255)') || `글자 ${s && s.color}`;
     });
-    await page.click(tid('tab-manage'));
+    await page.click(tid('tab-today'));
     await sleep(300);
     await check('D4 루틴 추가 버튼(주황 바탕): 글자/바탕 대비 ≥4.5', async () => contrastOk(await styleOf(page, tid('btn-add-routine'))));
     await ctx.close();
