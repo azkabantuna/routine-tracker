@@ -20,7 +20,7 @@
   position: absolute;
   border-radius: var(--r-pill);
   animation-name: confetti-burst;
-  animation-timing-function: ease-out;
+  animation-timing-function: var(--ease-out);
   animation-fill-mode: both;
 }
 
@@ -37,11 +37,11 @@
 }
 .emoji-particle[data-kind="burst"] {
   animation-name: particle-burst;
-  animation-timing-function: ease-out;
+  animation-timing-function: var(--ease-out);
 }
 .emoji-particle[data-kind="rain"] {
   animation-name: particle-fall;
-  animation-timing-function: ease-in;
+  animation-timing-function: var(--ease-in);
 }
 
 .celebrate .emoji-rain { opacity: .45; } /* 카드 글씨를 가리지 않게 흐리게 */
@@ -50,9 +50,9 @@
   position: absolute;
   width: 120px;
   height: 120px;
-  border-radius: 50%;
+  border-radius: var(--r-round);
   background: radial-gradient(circle, color-mix(in srgb, var(--c-mini) 90%, transparent) 0%, color-mix(in srgb, var(--c-mini) 40%, transparent) 45%, transparent 70%);
-  animation: flash-pulse 600ms var(--ease-out) both;
+  animation: flash-pulse var(--t-fx) var(--ease-out) both;
 }
 @keyframes flash-pulse {
   0% { transform: scale(.4); opacity: 0; }
@@ -64,9 +64,9 @@
   position: absolute;
   width: 360px;
   height: 360px;
-  border-radius: 50%;
+  border-radius: var(--r-round);
   background: radial-gradient(circle, color-mix(in srgb, var(--c-max) 85%, transparent) 0%, color-mix(in srgb, var(--c-max) 40%, transparent) 40%, transparent 70%);
-  animation: glow-pulse 1800ms var(--ease-out) both;
+  animation: glow-pulse var(--t-long) var(--ease-out) both;
 }
 
 /* 터짐: 0~50% 로 퍼지고, 나머지는 중력으로 조금 떨어지며 사라짐 */

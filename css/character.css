@@ -1,37 +1,37 @@
 /* 성장 캐릭터 카드 (루틴 관리 탭 맨 위). 움직임은 transform·opacity 만 */
 .char-card {
-  display: flex; align-items: center; gap: 14px;
-  margin: 0 0 14px; padding: 14px;
+  display: flex; align-items: center; gap: var(--sp-3);
+  margin: 0 0 var(--sp-3); padding: var(--sp-3);
   background: var(--c-card);
   border-radius: var(--r-m);
   box-shadow: var(--sh-press);
   position: relative;
 }
 .char-stage { position: relative; width: 96px; height: 96px; flex: 0 0 96px; display: flex; align-items: flex-end; justify-content: center; }
-.char-shadow { position: absolute; bottom: 2px; left: 50%; width: 64px; height: 12px; margin-left: -32px; border-radius: 50%; background: color-mix(in srgb, var(--c-text) 18%, transparent); filter: blur(2px); }
-.char-pet { position: relative; width: 56px; height: 62px; margin-bottom: 8px; transform-origin: 50% 100%; animation: char-breathe 1800ms ease-in-out infinite; }
+.char-shadow { position: absolute; bottom: 2px; left: 50%; width: 64px; height: 12px; margin-left: calc(-1 * var(--sp-8)); border-radius: var(--r-round); background: color-mix(in srgb, var(--c-text) 18%, transparent); filter: blur(2px); }
+.char-pet { position: relative; width: 56px; height: 62px; margin-bottom: var(--sp-2); transform-origin: 50% 100%; animation: char-breathe var(--t-long) var(--ease-inout) infinite; }
 .char-body {
-  position: absolute; inset: 0; border-radius: 50%;
+  position: absolute; inset: 0; border-radius: var(--r-round);
   background: radial-gradient(circle at 35% 28%, var(--c-bg) 0, color-mix(in srgb, var(--c-accent) 35%, var(--c-card)) 38%, var(--c-accent) 100%);
   box-shadow: none;
 }
-.char-shine { position: absolute; top: 9%; left: 20%; width: 22%; height: 16%; border-radius: 50%; background: color-mix(in srgb, var(--c-card) 75%, transparent); transform: rotate(-25deg); }
-.char-eye { position: absolute; top: 46%; width: 7px; height: 9px; border-radius: 50%; background: var(--c-text); display: none; }
+.char-shine { position: absolute; top: 9%; left: 20%; width: 22%; height: 16%; border-radius: var(--r-round); background: color-mix(in srgb, var(--c-card) 75%, transparent); transform: rotate(-25deg); }
+.char-eye { position: absolute; top: 46%; width: 7px; height: 9px; border-radius: var(--r-round); background: var(--c-text); display: none; }
 .char-eye-l { left: 30%; } .char-eye-r { right: 30%; }
 .char-ear { position: absolute; display: none; top: -10px; width: 16px; height: 20px; background: var(--c-accent); box-shadow: none; }
 .char-ear-l { left: 4px; transform: rotate(-18deg); } .char-ear-r { right: 4px; transform: rotate(18deg); }
 
 /* 1 알: 작고 하얀 타원 */
 .char-card[data-stage="1"] .char-pet { width: 42px; height: 54px; }
-.char-card[data-stage="1"] .char-body { border-radius: 50%; background: radial-gradient(circle at 35% 28%, var(--c-card) 0, var(--c-sunk) 45%, var(--c-line) 100%); }
+.char-card[data-stage="1"] .char-body { border-radius: var(--r-round); background: radial-gradient(circle at 35% 28%, var(--c-card) 0, var(--c-sunk) 45%, var(--c-line) 100%); }
 /* 2 아기: 노랗고 둥근 몸, 눈 */
 .char-card[data-stage="2"] .char-pet { width: 50px; height: 50px; }
-.char-card[data-stage="2"] .char-body { border-radius: 50%; background: radial-gradient(circle at 35% 28%, var(--c-card) 0, color-mix(in srgb, var(--c-max) 45%, var(--c-card)) 45%, var(--c-max) 100%); }
+.char-card[data-stage="2"] .char-body { border-radius: var(--r-round); background: radial-gradient(circle at 35% 28%, var(--c-card) 0, color-mix(in srgb, var(--c-max) 45%, var(--c-card)) 45%, var(--c-max) 100%); }
 .char-card[data-stage="2"] .char-eye { display: block; }
 /* 3 꼬마: 주황 + 작은 귀 */
 .char-card[data-stage="3"] .char-pet { width: 60px; height: 62px; }
 .char-card[data-stage="3"] .char-eye, .char-card[data-stage="3"] .char-ear { display: block; }
-.char-card[data-stage="3"] .char-ear { border-radius: 50%; }
+.char-card[data-stage="3"] .char-ear { border-radius: var(--r-round); }
 /* 4 어른: 크고 보라빛 + 뾰족한 귀·뿔빛 */
 .char-card[data-stage="4"] .char-pet { width: 72px; height: 76px; }
 .char-card[data-stage="4"] .char-body { background: radial-gradient(circle at 35% 28%, var(--c-card) 0, var(--c-future-soft) 42%, var(--c-future) 100%); }
@@ -40,21 +40,21 @@
 .char-card[data-stage="4"] .char-eye { width: 8px; height: 11px; background: var(--c-card); box-shadow: none; }
 
 .char-info { flex: 1; min-width: 0; }
-.char-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.char-level { font-size: 22px; font-weight: 800; color: var(--c-accent-dark); }
-.char-stage-name { font-size: 14px; font-weight: 700; color: var(--c-text2); }
+.char-top { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.char-level { font-size: var(--fs-22); font-weight: 800; color: var(--c-accent-dark); }
+.char-stage-name { font-size: var(--fs-13); font-weight: 700; color: var(--c-text2); }
 .char-bar { height: 12px; border-radius: var(--r-pill); background: var(--c-line); overflow: hidden; }
 .char-fill { height: 100%; width: 100%; border-radius: var(--r-pill); background: linear-gradient(90deg, color-mix(in srgb, var(--c-accent) 70%, var(--c-card)), var(--c-accent)); transform-origin: 0 50%; transform: scaleX(0); transition: transform var(--t-pop) var(--ease-out); }
-.char-xp-row { margin: 6px 0 0; font-size: 13px; font-weight: 700; color: var(--c-text2); }
-.char-xp-row strong { font-size: 16px; color: var(--c-text); }
-.char-next { margin: 2px 0 0; font-size: 13px; color: var(--c-text2); }
+.char-xp-row { margin: var(--sp-1) 0 0; font-size: var(--fs-13); font-weight: 700; color: var(--c-text2); }
+.char-xp-row strong { font-size: var(--fs-16); color: var(--c-text); }
+.char-next { margin: var(--sp-1) 0 0; font-size: var(--fs-13); color: var(--c-text2); }
 
 /* 레벨업: 캐릭터가 통통 튀고 빛 번짐 (600ms, 카드 안에서만) */
-.char-card[data-levelup="1"] .char-pet { animation: char-levelup 600ms var(--ease-out) 1; }
+.char-card[data-levelup="1"] .char-pet { animation: char-levelup var(--t-fx) var(--ease-out) 1; }
 .char-card[data-levelup="1"]::after {
-  content: ""; position: absolute; left: 14px; top: 14px; width: 96px; height: 96px; border-radius: 50%;
+  content: ""; position: absolute; left: 14px; top: 14px; width: 96px; height: 96px; border-radius: var(--r-round);
   background: radial-gradient(circle, color-mix(in srgb, var(--c-max) 80%, transparent) 0, transparent 70%);
-  pointer-events: none; opacity: 0; animation: char-glow 600ms var(--ease-out) 1;
+  pointer-events: none; opacity: 0; animation: char-glow var(--t-fx) var(--ease-out) 1;
 }
 @keyframes char-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.04, .96); } }
 @keyframes char-levelup { 0% { transform: translateY(0) scale(1); } 35% { transform: translateY(-14px) scale(1.12); } 70% { transform: translateY(0) scale(.95, 1.05); } 100% { transform: translateY(0) scale(1); } }
@@ -73,7 +73,7 @@
 @supports not (height: 100dvh) { #screen-manage { height: calc(100vh - var(--tabbar-h)); } }
 body:has(#screen-manage:not([hidden])) { overflow-y: hidden; }
 .manage-title-hidden { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.char-mount { position: absolute; inset: 0; background: var(--c-bg); padding: 16px; }
+.char-mount { position: absolute; inset: 0; background: var(--c-bg); padding: var(--sp-4); }
 .char-mount .char-card { margin: 0; }
 
 /* 3D: 캔버스가 카드 전체를 채우고, 글씨(HUD)는 그 위에 겹친다 */
@@ -92,7 +92,7 @@ body:has(#screen-manage:not([hidden])) { overflow-y: hidden; }
 .char-card[data-render="3d"] .char-xp-row strong { color: var(--c-text); }
 .char-card[data-render="3d"] .char-bar { background: var(--c-line); }
 .char-card[data-render="3d"][data-levelup="1"]::after { display: none; }
-.char-card[data-render="3d"][data-levelup="1"] .char-info { animation: char-hud-pop 600ms var(--ease-out) 1; }
+.char-card[data-render="3d"][data-levelup="1"] .char-info { animation: char-hud-pop var(--t-fx) var(--ease-out) 1; }
 @keyframes char-hud-pop { 0% { transform: scale(1); } 35% { transform: scale(1.06); } 100% { transform: scale(1); } }
 
 @media (prefers-reduced-motion: reduce) {
@@ -104,25 +104,25 @@ body:has(#screen-manage:not([hidden])) { overflow-y: hidden; }
 .fw-layer[data-mode="float"]:not([data-placed]) > * { visibility: hidden; }
 .fw-layer[data-mode="float"] > .fw-word,
 .fw-layer[data-mode="float"] > .fw-edit { position: absolute; left: 0; top: 0; pointer-events: auto; }
-.fw-layer[data-mode="flow"] { margin-top: 10px; pointer-events: auto; }
+.fw-layer[data-mode="flow"] { margin-top: var(--sp-3); pointer-events: auto; }
 .fw-layer [hidden] { display: none !important; }
 .fw-word {
-  min-width: 44px; min-height: 44px; max-width: 160px; padding: 0 16px; box-sizing: border-box;
+  min-width: 44px; min-height: 44px; max-width: 160px; padding: 0 var(--sp-4); box-sizing: border-box;
   border: 2px solid var(--c-future-soft); border-radius: var(--r-pill); background: color-mix(in srgb, var(--c-card) 70%, transparent);
-  color: var(--c-future); font: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
+  color: var(--c-future); font: inherit; font-size: var(--fs-15); font-weight: 800; cursor: pointer;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; touch-action: manipulation;
   box-shadow: none;
 }
 .fw-word[data-empty="1"] { color: var(--c-text2); font-weight: 700; }
 /* 미래 포털(3D 일 때만 host 에 data-rt-bg 가 붙는다) 단어 글자색: #B8470F */
 [data-rt-bg="clear"] .fw-word:not([data-empty="1"]) { color: #B8470F; }
-.fw-edit { display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: var(--r-pill); background: var(--c-card); box-shadow: var(--sh-float); }
+.fw-edit { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1); border-radius: var(--r-pill); background: var(--c-card); box-shadow: var(--sh-float); }
 .fw-input {
-  width: 128px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border: 2px solid var(--c-future-soft); border-radius: var(--r-pill);
-  font: inherit; font-size: 16px; font-weight: 700; color: var(--c-text); background: var(--c-card); outline: none;
+  width: 128px; min-height: 44px; box-sizing: border-box; padding: 0 var(--sp-3); border: 2px solid var(--c-future-soft); border-radius: var(--r-pill);
+  font: inherit; font-size: var(--fs-16); font-weight: 700; color: var(--c-text); background: var(--c-card); outline: none;
 }
 .fw-input:focus { border-color: var(--c-future); }
 .fw-save {
-  min-width: 52px; min-height: 44px; padding: 0 12px; border: none; border-radius: var(--r-pill); background: var(--c-future);
-  color: var(--c-card); font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; touch-action: manipulation;
+  min-width: 52px; min-height: 44px; padding: 0 var(--sp-3); border: none; border-radius: var(--r-pill); background: var(--c-future);
+  color: var(--c-card); font: inherit; font-size: var(--fs-13); font-weight: 800; cursor: pointer; touch-action: manipulation;
 }

@@ -1,27 +1,27 @@
 /* 타이머 탭: 그라데이션 링·타일·검은 덮개. 움직임(transition·@keyframes)은 transform·opacity 만 */
 .tabbar { grid-template-columns: repeat(4, 1fr); }
 
-.timer-ring-wrap { position: relative; width: min(70vw, 300px); aspect-ratio: 1; margin: 16px auto; display: grid; place-items: center; }
-#screen-timer { --timer-color: var(--c-more); --timer-glow: color-mix(in srgb, var(--c-more) 28%, transparent); }
-.timer-ring-wrap::before { content: ""; position: absolute; inset: 4%; border-radius: 50%; background: var(--c-card); box-shadow: var(--sh-float), 0 0 36px var(--timer-glow); }
+.timer-ring-wrap { position: relative; width: min(70vw, 300px); aspect-ratio: 1; margin: var(--sp-4) auto; display: grid; place-items: center; }
+#screen-timer { --timer-color: var(--c-more); --timer-glow: color-mix(in srgb, var(--c-more) 28%, transparent); --sh-ring: var(--sh-float), var(--sh-ring-glow) var(--timer-glow); }
+.timer-ring-wrap::before { content: ""; position: absolute; inset: 4%; border-radius: var(--r-round); background: var(--c-card); box-shadow: var(--sh-ring); }
 .timer-svg { grid-area: 1 / 1; position: relative; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 6; stroke-linecap: round; }
 .timer-svg .timer-track { stroke: var(--c-line); stroke-width: 6; stroke-dasharray: none; }
 .timer-svg .timer-arc { stroke: url(#timer-grad); }
 .timer-cover .timer-svg .timer-arc { stroke: url(#timer-cover-grad); }
-.timer-time { grid-area: 1 / 1; position: relative; font-size: 15vw; font-weight: 700; margin: 0; font-variant-numeric: tabular-nums; }
-@media (min-width: 430px) { .timer-time { font-size: 4rem; } }
-.timer-tiles { display: none; grid-area: 2 / 1; grid-template-columns: repeat(5, 1fr); gap: 8px; width: 100%; aspect-ratio: 1; position: relative; }
+.timer-time { grid-area: 1 / 1; position: relative; font-size: var(--fs-timer); font-weight: 700; margin: 0; font-variant-numeric: tabular-nums; }
+@media (min-width: 430px) { #screen-timer { --fs-timer: 4rem; } }
+.timer-tiles { display: none; grid-area: 2 / 1; grid-template-columns: repeat(5, 1fr); gap: var(--sp-2); width: 100%; aspect-ratio: 1; position: relative; }
 .timer-tile { position: relative; overflow: hidden; border-radius: var(--r-s); background: var(--c-line); }
 .timer-fill { position: absolute; inset: 0; background: linear-gradient(180deg, color-mix(in srgb, var(--timer-color) 72%, var(--c-card)), var(--timer-color) 60%); transform: scaleY(0); transform-origin: bottom; }
 .timer-tile.tile-pop { animation: tile-pop var(--t-base) var(--ease-out); }
-[data-timer-view="tiles"] .timer-ring-wrap { width: min(80vw, 320px); aspect-ratio: auto; grid-template-rows: auto auto; row-gap: 12px; }
+[data-timer-view="tiles"] .timer-ring-wrap { width: min(80vw, 320px); aspect-ratio: auto; grid-template-rows: auto auto; row-gap: var(--sp-3); }
 [data-timer-view="tiles"] .timer-ring-wrap::before, [data-timer-view="tiles"] > .timer-ring-wrap > .timer-svg { display: none; }
 [data-timer-view="tiles"] .timer-tiles { display: grid; }
 .timer-unit { text-align: center; margin: 0; color: var(--c-text2); display: none; }
 [data-timer-view="tiles"] .timer-unit { display: block; }
-[data-timer-fx="done"] .timer-ring-wrap { animation: timer-pulse 900ms ease-in-out 3, timer-glow 900ms ease-in-out 3; }
-[data-timer-fx="done"] .timer-tile { animation: timer-wave 600ms ease-in-out 2; animation-delay: var(--wave-delay); }
-[data-timer-fx="done"].timer-cover .timer-svg, [data-timer-fx="done"].timer-cover .timer-cover-time { animation: timer-pulse 900ms ease-in-out 3; }
+[data-timer-fx="done"] .timer-ring-wrap { animation: timer-pulse var(--t-pulse) var(--ease-inout) 3, timer-glow var(--t-pulse) var(--ease-inout) 3; }
+[data-timer-fx="done"] .timer-tile { animation: timer-wave var(--t-fx) var(--ease-inout) 2; animation-delay: var(--wave-delay); }
+[data-timer-fx="done"].timer-cover .timer-svg, [data-timer-fx="done"].timer-cover .timer-cover-time { animation: timer-pulse var(--t-pulse) var(--ease-inout) 3; }
 @keyframes tile-pop { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
 @keyframes timer-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 @keyframes timer-glow { 0%, 100% { opacity: 1; } 50% { opacity: .75; } }
@@ -30,34 +30,34 @@
   .timer-tile.tile-pop, .timer-tile, .timer-ring-wrap, .timer-svg, .timer-cover-time { animation: none !important; }
 }
 .timer-done { text-align: center; margin: 0; }
-.timer-min-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0; }
+.timer-min-row { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); margin: var(--sp-2) 0; }
 .timer-min-row input { width: 5em; min-height: 44px; text-align: center; font: inherit; }
-.timer-min-error { text-align: center; margin: 4px 0; }
-.timer-actions { display: flex; justify-content: center; gap: 8px; margin: 12px 0; }
-.timer-fs-row { display: flex; justify-content: center; gap: 8px; margin: 8px 0; }
-.timer-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; background: var(--c-card); border: 1px solid var(--c-line); border-radius: var(--r-s); color: var(--c-text2); transition: transform var(--t-fast) var(--ease-out); }
-.timer-icon-btn:active, .timer-icon-btn[data-timer-press="1"] { transform: scale(.96); }
+.timer-min-error { text-align: center; margin: var(--sp-1) 0; }
+.timer-actions { display: flex; justify-content: center; gap: var(--sp-2); margin: var(--sp-3) 0; }
+.timer-fs-row { display: flex; justify-content: center; gap: var(--sp-2); margin: var(--sp-2) 0; }
+.timer-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; background: var(--c-card); border: 1px solid var(--c-line); border-radius: var(--r-s); color: var(--c-text2); transition: transform var(--t-base) var(--ease-pop); }
+.timer-icon-btn:active, .timer-icon-btn[data-timer-press="1"] { transform: scale(.96); transition-duration: var(--t-fast); }
 .timer-icon-btn[aria-pressed="true"] { color: var(--c-accent); border-color: var(--c-accent); }
 .timer-sound-off { display: none; }
 .timer-icon-btn[aria-pressed="false"] .timer-sound-off { display: inline; }
 .timer-icon-btn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-.timer-cover { position: fixed; inset: 0; z-index: 30; background: #000; color: var(--c-card); display: grid; place-items: center; place-content: center; --timer-color: var(--c-more); }
+.timer-cover { position: fixed; inset: 0; z-index: 30; background: var(--c-cover); color: var(--c-card); display: grid; place-items: center; place-content: center; --timer-color: var(--c-more); }
 .timer-cover[hidden] { display: none; }
 .timer-cover .timer-svg { width: min(80vmin, 560px); height: min(80vmin, 560px); stroke-width: 4; }
 .timer-cover .timer-svg .timer-track { stroke: color-mix(in srgb, var(--c-card) 12%, transparent); stroke-width: 4; }
-.timer-cover-time { grid-area: 1 / 1; position: relative; font-size: 18vmin; font-weight: 700; margin: 0; color: var(--c-card); font-variant-numeric: tabular-nums; }
+.timer-cover-time { grid-area: 1 / 1; position: relative; font-size: var(--fs-cover); font-weight: 700; margin: 0; color: var(--c-card); font-variant-numeric: tabular-nums; }
 .timer-cover .timer-svg, .timer-cover-time { grid-area: 1 / 1; }
 .timer-cover .timer-tile { background: color-mix(in srgb, var(--c-card) 12%, transparent); }
 .timer-cover[data-timer-view="tiles"] .timer-svg { display: none; }
-.timer-cover[data-timer-view="tiles"] .timer-tiles { display: grid; width: min(64vmin, 480px); grid-area: 2 / 1; margin-top: 3vmin; }
-.timer-cover[data-timer-view="tiles"] .timer-cover-time { font-size: 12vmin; }
-.timer-cover[data-timer-state="done"]::after { content: "끝"; grid-area: 1 / 1; align-self: end; margin-bottom: 12vmin; font-size: 6vmin; color: var(--c-card); }
+.timer-cover[data-timer-view="tiles"] .timer-tiles { display: grid; width: min(64vmin, 480px); grid-area: 2 / 1; margin-top: var(--sp-cover-gap); }
+.timer-cover[data-timer-view="tiles"] .timer-cover-time { font-size: var(--fs-cover-s); }
+.timer-cover[data-timer-state="done"]::after { content: "끝"; grid-area: 1 / 1; align-self: end; margin-bottom: var(--sp-cover-end); font-size: var(--fs-cover-done); color: var(--c-card); }
 .timer-cover[data-timer-state="done"][data-timer-view="tiles"]::after { grid-area: 3 / 1; align-self: center; margin-bottom: 0; }
-.timer-cover-close { position: absolute; top: calc(8px + env(safe-area-inset-top, 0px)); right: 8px; color: var(--c-card); border-color: var(--c-card); background: #000; }
+.timer-cover-close { position: absolute; top: calc(8px + env(safe-area-inset-top, 0px)); right: 8px; color: var(--c-card); border-color: var(--c-card); background: var(--c-cover); }
 body:has(.timer-cover:not([hidden])) .celebrate { z-index: 31; }
 
 /* 타이머 전용 버튼: 시작 = 주황 버튼(진한 글자), 나머지 = 흰 바탕+--line 테두리 (둥근 16px). 누름 = transform 만 (.btn 클래스 안 씀) */
-.timer-btn { background: var(--c-card); color: var(--c-text); border: 1px solid var(--c-line); border-radius: var(--r-m); min-height: 44px; padding: 0 20px; font-weight: 700; box-shadow: none; transition: transform var(--t-fast) var(--ease-out); }
+.timer-btn { background: var(--c-card); color: var(--c-text); border: 1px solid var(--c-line); border-radius: var(--r-m); min-height: 44px; padding: 0 var(--sp-5); font-weight: 700; box-shadow: none; transition: transform var(--t-base) var(--ease-pop); }
 .timer-btn[data-testid="timer-start"] { background: var(--c-accent); color: var(--c-text); border-color: var(--c-accent); }
-.timer-btn:active, .timer-btn[data-timer-press="1"] { transform: scale(.96); }
+.timer-btn:active, .timer-btn[data-timer-press="1"] { transform: scale(.96); transition-duration: var(--t-fast); }

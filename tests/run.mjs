@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT = path.resolve(HERE, '..');
-const FEATURES = ['store', 'routines', 'emoji', 'effects', 'motion', 'layout', 'calendar', 'character', 'futureword', 'timer', 'slipstream', 'design', 'portal', 'longpress', 'stability', 'usability', 'perf'];
+const FEATURES = ['store', 'routines', 'emoji', 'effects', 'motion', 'layout', 'calendar', 'character', 'futureword', 'timer', 'slipstream', 'design', 'portal', 'longpress', 'stability', 'usability', 'perf', 'consistency'];
 
 // ★ 바뀐 파일 → 돌릴 기능 (표 하나뿐). 표에 없는 파일은 안전하게 전부 돌린다.
 const TABLE = {
@@ -21,19 +21,19 @@ const TABLE = {
   'emoji.js': ['emoji', 'routines'], // 시트가 이모지 검사를 씀
   'sheets.js': ['routines', 'emoji', 'longpress', 'usability'],
   'effects.js': ['effects', 'design'],
-  'effects.css': ['effects', 'design'],
+  'effects.css': ['effects', 'design', 'consistency'],
   'screens.js': ['routines', 'motion', 'layout', 'design', 'longpress', 'usability', 'perf'],
   'app.js': ['routines', 'motion', 'layout', 'calendar', 'timer', 'design', 'stability', 'usability', 'perf'],
   'index.html': ['routines', 'motion', 'layout', 'calendar', 'timer', 'futureword', 'design', 'longpress', 'usability', 'perf'],
   'timer.js': ['timer', 'stability', 'usability', 'perf'],
-  'timer.css': ['timer', 'design', 'usability'],
-  'base.css': ['motion', 'layout', 'design', 'usability'],
-  'cards.css': ['motion', 'layout', 'design', 'longpress', 'usability'],
-  'overlays.css': ['motion', 'layout', 'design', 'usability'],
+  'timer.css': ['timer', 'design', 'usability', 'consistency'],
+  'base.css': ['motion', 'layout', 'design', 'usability', 'consistency'],
+  'cards.css': ['motion', 'layout', 'design', 'longpress', 'usability', 'consistency'],
+  'overlays.css': ['motion', 'layout', 'design', 'usability', 'consistency'],
   'calendar.js': ['calendar', 'stability', 'usability', 'perf'],
-  'calendar.css': ['calendar', 'usability'],
+  'calendar.css': ['calendar', 'usability', 'consistency'],
   'character.js': ['character', 'store'],
-  'character.css': ['character', 'layout', 'futureword', 'portal', 'usability'],
+  'character.css': ['character', 'layout', 'futureword', 'portal', 'usability', 'consistency'],
   'futureword.js': ['futureword', 'character', 'layout', 'usability'],
   'character3d.js': ['character', 'layout', 'futureword', 'slipstream', 'portal'],
   'embed.tsx': ['character', 'futureword', 'slipstream', 'portal'], // 원본(character-3d/src) 이 바뀔 때
