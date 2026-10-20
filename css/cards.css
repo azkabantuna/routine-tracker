@@ -50,6 +50,7 @@
   min-width: 0;
   font-size: 19px;
   font-weight: 800;
+  word-break: keep-all; /* 한글 낱말 중간에서 줄 안 바꿈(긴 낱말은 anywhere 로 끊김) */
   overflow-wrap: anywhere;
 }
 
@@ -112,6 +113,7 @@
   font-size: 13px;
   color: var(--c-text2);
   font-weight: 600;
+  word-break: keep-all;
   overflow-wrap: anywhere;
 }
 
@@ -156,6 +158,6 @@
   color: var(--c-text2);
   cursor: pointer;
 }
-.tab-icon { font-size: 20px; line-height: 1; filter: grayscale(1); opacity: 0.6; }
+.tab-icon { font-size: 20px; line-height: 1; filter: grayscale(1); opacity: 0.85; }
 .tab[aria-selected="true"] { color: var(--c-accent-text); font-weight: 900; background: var(--c-accent-soft); border-radius: var(--r-pill); min-height: 36px; margin: 8px 6px; }
 .tab[aria-selected="true"] .tab-icon { filter: none; opacity: 1; }

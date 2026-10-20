@@ -74,7 +74,7 @@ button, input { font: inherit; color: inherit; }
 
 .screens {
   position: relative;
-  padding: 16px 16px calc(var(--tabbar-h) + 24px);
+  padding: 16px 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 32px);
 }
 @supports (overflow: clip) {
   .screens { overflow-x: clip; }

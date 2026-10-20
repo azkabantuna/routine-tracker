@@ -110,7 +110,6 @@
 .pick:active { background: var(--c-line); }
 @media (max-width: 380px) {
   .emoji-pick { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-  .pick { min-height: 40px; }
 }
 
 .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }

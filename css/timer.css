@@ -31,7 +31,7 @@
 }
 .timer-done { text-align: center; margin: 0; }
 .timer-min-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0; }
-.timer-min-row input { width: 5em; text-align: center; font: inherit; }
+.timer-min-row input { width: 5em; min-height: 44px; text-align: center; font: inherit; }
 .timer-min-error { text-align: center; margin: 4px 0; }
 .timer-actions { display: flex; justify-content: center; gap: 8px; margin: 12px 0; }
 .timer-fs-row { display: flex; justify-content: center; gap: 8px; margin: 8px 0; }

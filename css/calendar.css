@@ -31,7 +31,7 @@
   gap: 4px;
 }
 .cal-weekdays { margin-bottom: 4px; text-align: center; font-size: 12px; font-weight: 800; color: var(--c-text2); }
-.cal-weekdays span:first-child { color: var(--c-danger); }
+.cal-weekdays span:first-child { color: var(--c-danger-dark); }
 
 .cal-grid { touch-action: pan-y; }
 .cal-grid[data-anim="slide"] { animation: cal-slide var(--t-base) var(--ease-out) both; }
@@ -42,11 +42,12 @@
   to { opacity: 1; transform: none; }
 }
 
-.cal-pad { aspect-ratio: 1 / 1; }
+.cal-pad { aspect-ratio: 1 / 1; min-height: 44px; }
 .cal-day {
   position: relative;
   aspect-ratio: 1 / 1;
   min-width: 0;
+  min-height: 44px;
   padding: 0;
   display: flex;
   align-items: center;
@@ -54,7 +55,7 @@
   border: 2px solid transparent;
   border-radius: var(--r-s);
   background: var(--c-sunk);
-  color: var(--c-text2);
+  color: color-mix(in srgb, var(--c-text2) 70%, var(--c-text));
   font-weight: 800;
   font-size: 15px;
   cursor: pointer;
@@ -122,3 +123,8 @@
 .cal-item[data-level="max"]  { border-left-color: var(--c-max); }
 
 /* 움직임 줄이기는 overlays.css 의 전체 규칙(animation·transition 끔)이 처리, 누름 모양은 그대로 */
+@media (max-width: 380px) {
+  .cal-card { margin: 0 -8px; padding-left: 2px; padding-right: 2px; }
+  .cal-weekdays, .cal-grid { gap: 3px; }
+  .cal-day, .cal-pad { aspect-ratio: auto; height: 44px; }
+}
